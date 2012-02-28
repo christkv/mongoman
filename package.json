@@ -1,0 +1,19 @@
+{
+  "author": "Christian Kvalheim <christkv@gmail.com>",
+  "name": "mongo-htm5-game-example",
+  "description": "Mongo/Node Html5 example application",
+  "version": "0.0.1",
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/christkv/node-mongo-htm5-game-example.git"
+  },
+  "engines": {
+    "node": "~0.6.10"
+  },
+  "dependencies": {
+    "ws" : "0.4.7",
+    "mongodb" : "0.9.9-4"    
+  },
+  "devDependencies": {},
+  "optionalDependencies": {}
+}
