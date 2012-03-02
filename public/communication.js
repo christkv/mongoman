@@ -1,20 +1,19 @@
 // Handles all our communication
-var GameCommunication = function() {
-  // Set up the object handling all the communication
-  // with the backend server
-  // this.messageHandler = {
-  //   initCommands: this.initCommands.bind(this)    
-  // };
+var GameCommunication = function(url, channel, callback) {
+  this.url = url;
+  this.channel = channel;
+  this.callback = callback;
 }
 
 // Handle the setup of the connection
 GameCommunication.prototype.connect = function(callback) {
-  var url = "ws://" + document.URL.substr(7).split('/')[0];
+  var url = "ws://" + this.url.substr(7).split('/')[0];
   // Create a websocket either using the Mozilla web socket or the
   // standard one
-  var wsCtor = window['MozWebSocket'] ? MozWebSocket : WebSocket;  
-  this.socket = new wsCtor(url, 'game');
-  this.socket.binaryType = 'blob';
+  // var wsCtor = window['MozWebSocket'] ? MozWebSocket : WebSocket;  
+  var wsCtor = window.WebSocket;  
+  this.socket = new wsCtor(url, this.channel);
+  this.socket.binaryType = 'arraybuffer';
 
   // Bind the handlers
   this.socket.onopen = callback;
@@ -29,38 +28,32 @@ GameCommunication.prototype.connect = function(callback) {
 
 // Dispatch a command
 GameCommunication.prototype.dispatchCommand = function(command) {
-  console.log("=============== command :: " + (command instanceof ArrayBuffer))
-  
-  if(command instanceof ArrayBuffer) {
-    console.log("---------------------------------------- ArrayBuffer")
-    
+  if(command instanceof ArrayBuffer) {    
     this.socket.send(command);
   } else if(typeof command == 'object') {
-    console.log("---------------------------------------- Object")
-
     this.socket.send(JSON.stringify(command));
   }
 }
 
 // Open the connection
 GameCommunication.prototype.handleWebsocketOpen = function() {
-  console.log("==================================== socket opened")    
+  // console.log("==================================== socket opened")    
 }
 
 // Handle the web socket messages
 GameCommunication.prototype.handleWebsocketMessage = function(message) {
   // Let's add the message to the incoming message array
-  // this.messages.push(message);
-  console.log("==================================== received message")  
-  console.dir(message)
+  // console.log("==================================== received message")
+  // console.dir(message)
+  // console.log(message.data)
+  if(message.data instanceof ArrayBuffer) {
+    this.callback(BSON.deserialize(new Uint8Array(message.data)));
+  } else {
+    this.callback(JSON.parse(message.data));
+  }
 }
 
 // Close the connection
 GameCommunication.prototype.handleWebsocketClose = function() {
-  console.log("==================================== socket closed")  
+  // console.log("==================================== socket closed")  
 }
-
-
-
-
-

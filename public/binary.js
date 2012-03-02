@@ -1,8 +1,10 @@
 /**
  * Module dependencies.
  */
-var Buffer = require('buffer').Buffer; // TODO just use global Buffer
-var bson = require('./bson');
+if(typeof window === 'undefined') {
+  var Buffer = require('buffer').Buffer; // TODO just use global Buffer
+  var bson = require('./bson');
+}
 
 /**
  * A class representation of the BSON Binary type.

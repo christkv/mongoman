@@ -14,7 +14,8 @@
     "websocket" : "1.0.4",
     "mongodb" : "0.9.9-4",
     "express" : "2.5.8",
-    "ejs" : "0.6.1"
+    "ejs" : "0.6.1",
+    "async" : "0.1.18"
   },
   "devDependencies": {},
   "optionalDependencies": {}

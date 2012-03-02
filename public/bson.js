@@ -9,29 +9,8 @@ if(typeof window === 'undefined') {
     , MaxKey = require('./max_key').MaxKey
     , DBRef = require('./db_ref').DBRef
     , Binary = require('./binary').Binary
-    , ieee754 = require('./float_parser');  
-} else {
-  // Let's create our own Buffer class
-  Buffer = Array;
-  // Add missing methods
-  Buffer.byteLength = function(string, encoding) {
-    return string.length;
-  }
-  
-  Buffer.prototype.write = function(data, index, encoding) {    
-    index = index == null || isNaN(index) ? 0 : index;
-    
-    for(var i = 0; i < data.length; i++) {
-      this[index + i] = data[i].charCodeAt(0);
-    }
-    
-    // return the number of bytes written
-    return data.length;
-  }
-  
-  Buffer.prototype.asArrayBuffer = function() {
-    return new Uint8Array(this).buffer;
-  }
+    , writeIEEE754 = require('./float_parser').writeIEEE754
+    , readIEEE754 = require('./float_parser').readIEEE754;
 }
 
 /**
@@ -215,16 +194,17 @@ BSON.BSON_BINARY_SUBTYPE_USER_DEFINED = 128;
  * @return {Number} returns the number of bytes the BSON object will take up.
  * @api public
  */
-BSON.calculateObjectSize = function calculateObjectSize(object, serializeFunctions) {
+BSON.calculateObjectSize = function calculateObjectSize(object, serializeFunctions, isBuffer) {
+  // isBuffer = isBuffer == null ? false : true;
   var totalLength = (4 + 1);
     
   if(Array.isArray(object)) {
     for(var i = 0; i < object.length; i++) {
-      totalLength += calculateElement(i.toString(), object[i], serializeFunctions)
+      totalLength += calculateElement(i.toString(), object[i], serializeFunctions, isBuffer)
     }
   } else {
     for(var key in object) {
-      totalLength += calculateElement(key, object[key], serializeFunctions)
+      totalLength += calculateElement(key, object[key], serializeFunctions, isBuffer)
     }
   } 
 
@@ -235,47 +215,49 @@ BSON.calculateObjectSize = function calculateObjectSize(object, serializeFunctio
  * @ignore
  * @api private
  */
-function calculateElement(name, value, serializeFunctions) {
+function calculateElement(name, value, serializeFunctions, isBuffer) {
+  isBuffer = typeof Buffer !== 'undefined';
+  
   switch(typeof value) {
-    case 'string':
-      return 1 + Buffer.byteLength(name, 'utf8') + 1 + 4 + Buffer.byteLength(value, 'utf8') + 1;
+    case 'string':       
+      return 1 + (!isBuffer ? numberOfBytes(name) : Buffer.byteLength(name, 'utf8')) + 1 + 4 + (!isBuffer ? numberOfBytes(value) : Buffer.byteLength(value, 'utf8')) + 1;
     case 'number':
       if(Math.floor(value) === value && value >= BSON.JS_INT_MIN && value <= BSON.JS_INT_MAX) {
         if(value >= BSON.BSON_INT32_MIN && value <= BSON.BSON_INT32_MAX) { // 32 bit
-          return (name != null ? (Buffer.byteLength(name) + 1) : 0) + (4 + 1);
+          return (name != null ? ((!isBuffer ? numberOfBytes(name) : Buffer.byteLength(name, 'utf8')) + 1) : 0) + (4 + 1);
         } else {
-          return (name != null ? (Buffer.byteLength(name) + 1) : 0) + (8 + 1);
+          return (name != null ? ((!isBuffer ? numberOfBytes(name) : Buffer.byteLength(name, 'utf8')) + 1) : 0) + (8 + 1);
         }
       } else {  // 64 bit
-        return (name != null ? (Buffer.byteLength(name) + 1) : 0) + (8 + 1);
+        return (name != null ? ((!isBuffer ? numberOfBytes(name) : Buffer.byteLength(name, 'utf8')) + 1) : 0) + (8 + 1);
       }
     case 'undefined':
-      return (name != null ? (Buffer.byteLength(name) + 1) : 0) + (1);
+      return (name != null ? ((!isBuffer ? numberOfBytes(name) : Buffer.byteLength(name, 'utf8')) + 1) : 0) + (1);
     case 'boolean':
-      return (name != null ? (Buffer.byteLength(name) + 1) : 0) + (1 + 1);
+      return (name != null ? ((!isBuffer ? numberOfBytes(name) : Buffer.byteLength(name, 'utf8')) + 1) : 0) + (1 + 1);
     case 'object':   
       if(value == null || value instanceof MinKey || value instanceof MaxKey || value['_bsontype'] == 'MinKey' || value['_bsontype'] == 'MaxKey') {
-        return (name != null ? (Buffer.byteLength(name) + 1) : 0) + (1);
+        return (name != null ? ((!isBuffer ? numberOfBytes(name) : Buffer.byteLength(name, 'utf8')) + 1) : 0) + (1);
       } else if(value instanceof ObjectID || value['_bsontype'] == 'ObjectID') {
-        return (name != null ? (Buffer.byteLength(name) + 1) : 0) + (12 + 1);
+        return (name != null ? ((!isBuffer ? numberOfBytes(name) : Buffer.byteLength(name, 'utf8')) + 1) : 0) + (12 + 1);
       } else if(value instanceof Date) {
-        return (name != null ? (Buffer.byteLength(name) + 1) : 0) + (8 + 1);
-      } else if(Buffer.isBuffer(value)) {
-        return (name != null ? (Buffer.byteLength(name) + 1) : 0) + (1 + 4 + 1) + value.length;
+        return (name != null ? ((!isBuffer ? numberOfBytes(name) : Buffer.byteLength(name, 'utf8')) + 1) : 0) + (8 + 1);
+      } else if(typeof Buffer !== 'undefined' && Buffer.isBuffer(value)) {
+        return (name != null ? ((!isBuffer ? numberOfBytes(name) : Buffer.byteLength(name, 'utf8')) + 1) : 0) + (1 + 4 + 1) + value.length;
       } else if(value instanceof Long || value instanceof Double || value instanceof Timestamp 
           || value['_bsontype'] == 'Long' || value['_bsontype'] == 'Double' || value['_bsontype'] == 'Timestamp') {
-        return (name != null ? (Buffer.byteLength(name) + 1) : 0) + (8 + 1);        
+        return (name != null ? ((!isBuffer ? numberOfBytes(name) : Buffer.byteLength(name, 'utf8')) + 1) : 0) + (8 + 1);        
       } else if(value instanceof Code || value['_bsontype'] == 'Code') {
         // Calculate size depending on the availability of a scope
         if(value.scope != null && Object.keys(value.scope).length > 0) {
-          return (name != null ? (Buffer.byteLength(name) + 1) : 0) + 1 + 4 + 4 + Buffer.byteLength(value.code.toString(), 'utf8') + 1 + BSON.calculateObjectSize(value.scope);
+          return (name != null ? ((!isBuffer ? numberOfBytes(name) : Buffer.byteLength(name, 'utf8')) + 1) : 0) + 1 + 4 + 4 + (!isBuffer ? numberOfBytes(value.code.toString()) : Buffer.byteLength(value.code.toString(), 'utf8')) + 1 + BSON.calculateObjectSize(value.scope, serializeFunctions, isBuffer);
         } else {
-          return (name != null ? (Buffer.byteLength(name) + 1) : 0) + 1 + 4 + Buffer.byteLength(value.code.toString(), 'utf8') + 1;
+          return (name != null ? ((!isBuffer ? numberOfBytes(name) : Buffer.byteLength(name, 'utf8')) + 1) : 0) + 1 + 4 + (!isBuffer ? numberOfBytes(value.code.toString()) : Buffer.byteLength(value.code.toString(), 'utf8')) + 1;
         }                      
       } else if(value instanceof Binary || value['_bsontype'] == 'Binary') {
-        return (name != null ? (Buffer.byteLength(name) + 1) : 0) + (value.position + 1 + 4 + 1);
+        return (name != null ? ((!isBuffer ? numberOfBytes(name) : Buffer.byteLength(name, 'utf8')) + 1) : 0) + (value.position + 1 + 4 + 1);
       } else if(value instanceof Symbol || value['_bsontype'] == 'Symbol') {
-        return (name != null ? (Buffer.byteLength(name) + 1) : 0) + (Buffer.byteLength(value.value, 'utf8') + 4 + 1 + 1);
+        return (name != null ? ((!isBuffer ? numberOfBytes(name) : Buffer.byteLength(name, 'utf8')) + 1) : 0) + ((!isBuffer ? numberOfBytes(value.value) : Buffer.byteLength(value.value, 'utf8')) + 4 + 1 + 1);
       } else if(value instanceof DBRef || value['_bsontype'] == 'DBRef') {
         // Set up correct object for serialization
         var ordered_values = {
@@ -288,23 +270,23 @@ function calculateElement(name, value, serializeFunctions) {
           ordered_values['$db'] = value.db;
         }
         
-        return (name != null ? (Buffer.byteLength(name) + 1) : 0) + 1 + BSON.calculateObjectSize(ordered_values, serializeFunctions);
-      } else if(value instanceof RegExp || toString.call(value) === '[object RegExp]') {
-          return (name != null ? (Buffer.byteLength(name) + 1) : 0) + 1 + Buffer.byteLength(value.source, 'utf8') + 1
+        return (name != null ? ((!isBuffer ? numberOfBytes(name) : Buffer.byteLength(name, 'utf8')) + 1) : 0) + 1 + BSON.calculateObjectSize(ordered_values, serializeFunctions, isBuffer);
+      } else if(value instanceof RegExp || String.call(value) === '[object RegExp]') {
+          return (name != null ? ((!isBuffer ? numberOfBytes(name) : Buffer.byteLength(name, 'utf8')) + 1) : 0) + 1 + (!isBuffer ? numberOfBytes(value.source) : Buffer.byteLength(value.source, 'utf8')) + 1
             + (value.global ? 1 : 0) + (value.ignoreCase ? 1 : 0) + (value.multiline ? 1 : 0) + 1        
       } else {
-        return (name != null ? (Buffer.byteLength(name) + 1) : 0) + BSON.calculateObjectSize(value, serializeFunctions) + 1;        
+        return (name != null ? ((!isBuffer ? numberOfBytes(name) : Buffer.byteLength(name, 'utf8')) + 1) : 0) + BSON.calculateObjectSize(value, serializeFunctions, isBuffer) + 1;        
       }
     case 'function':
       // WTF for 0.4.X where typeof /someregexp/ === 'function'
-      if(value instanceof RegExp || toString.call(value) === '[object RegExp]') {        
-        return (name != null ? (Buffer.byteLength(name) + 1) : 0) + 1 + Buffer.byteLength(value.source, 'utf8') + 1
+      if(value instanceof RegExp || String.call(value) === '[object RegExp]') {        
+        return (name != null ? ((!isBuffer ? numberOfBytes(name) : Buffer.byteLength(name, 'utf8')) + 1) : 0) + 1 + (!isBuffer ? numberOfBytes(value.source) : Buffer.byteLength(value.source, 'utf8')) + 1
           + (value.global ? 1 : 0) + (value.ignoreCase ? 1 : 0) + (value.multiline ? 1 : 0) + 1
       } else {
         if(serializeFunctions && value.scope != null && Object.keys(value.scope).length > 0) {
-          return (name != null ? (Buffer.byteLength(name) + 1) : 0) + 1 + 4 + 4 + Buffer.byteLength(value.toString(), 'utf8') + 1 + BSON.calculateObjectSize(value.scope);
+          return (name != null ? ((!isBuffer ? numberOfBytes(name) : Buffer.byteLength(name, 'utf8')) + 1) : 0) + 1 + 4 + 4 + (!isBuffer ? numberOfBytes(value.toString()) : Buffer.byteLength(value.toString(), 'utf8')) + 1 + BSON.calculateObjectSize(value.scope, serializeFunctions, isBuffer);
         } else if(serializeFunctions) {
-          return (name != null ? (Buffer.byteLength(name) + 1) : 0) + 1 + 4 + Buffer.byteLength(value.toString(), 'utf8') + 1;
+          return (name != null ? ((!isBuffer ? numberOfBytes(name) : Buffer.byteLength(name, 'utf8')) + 1) : 0) + 1 + 4 + (!isBuffer ? numberOfBytes(value.toString()) : Buffer.byteLength(value.toString(), 'utf8')) + 1;
         }      
       }
   }
@@ -363,24 +345,73 @@ var serializeObject = function(object, checkKeys, buffer, index, serializeFuncti
   return index;
 }
 
+var stringToBytes = function(str) {
+  var ch, st, re = [];
+  for (var i = 0; i < str.length; i++ ) {
+    ch = str.charCodeAt(i);  // get char 
+    st = [];                 // set up "stack"
+    do {
+      st.push( ch & 0xFF );  // push byte to stack
+      ch = ch >> 8;          // shift value down by 1 byte
+    }  
+    while ( ch );
+    // add stack contents to result
+    // done because chars have "wrong" endianness
+    re = re.concat( st.reverse() );
+  }
+  // return an array of bytes
+  return re;
+}
+
+var numberOfBytes = function(str) {
+  var ch, st, re = 0;
+  for (var i = 0; i < str.length; i++ ) {
+    ch = str.charCodeAt(i);  // get char 
+    st = [];                 // set up "stack"
+    do {
+      st.push( ch & 0xFF );  // push byte to stack
+      ch = ch >> 8;          // shift value down by 1 byte
+    }  
+    while ( ch );
+    // add stack contents to result
+    // done because chars have "wrong" endianness
+    re = re + st.length;
+  }
+  // return an array of bytes
+  return re;  
+}
+
+/**
+ * @ignore
+ * @api private
+ */
+var writeToTypedArray = function(buffer, string, index) {
+  var bytes = stringToBytes(string);
+  for(var i = 0; i < bytes.length; i++) {
+    buffer[index + i] = bytes[i];
+  }
+  return bytes.length;
+}
+
 /**
  * @ignore
  * @api private
  */
 var packElement = function(name, value, checkKeys, buffer, index, serializeFunctions) {
-  // console.log("packElement: " + name + " :: " + value)
   var startIndex = index;
   
   switch(typeof value) {
     case 'string':
       // Encode String type
       buffer[index++] = BSON.BSON_DATA_STRING;
+      // Number of written bytes
+      var numberOfWrittenBytes = buffer instanceof Uint8Array ? writeToTypedArray(buffer, name, index) : buffer.write(name, index, 'utf8');
       // Encode the name
-      index = index + buffer.write(name, index, 'utf8') + 1;
+      index = index + numberOfWrittenBytes + 1;
       buffer[index - 1] = 0;          
       
       // Calculate size
-      var size = Buffer.byteLength(value) + 1;
+      var size = buffer instanceof Uint8Array ? numberOfBytes(value) + 1 : Buffer.byteLength(value) + 1;
       // Write the size of the string to buffer
       buffer[index + 3] = (size >> 24) & 0xff;     
       buffer[index + 2] = (size >> 16) & 0xff;
@@ -389,7 +420,7 @@ var packElement = function(name, value, checkKeys, buffer, index, serializeFunct
       // Ajust the index
       index = index + 4;
       // Write the string
-      buffer.write(value, index, 'utf8');
+      buffer instanceof Uint8Array ? writeToTypedArray(buffer, value, index) : buffer.write(value, index, 'utf8');
       // Update index
       index = index + size - 1;
       // Write zero
@@ -404,8 +435,10 @@ var packElement = function(name, value, checkKeys, buffer, index, serializeFunct
         if(value >= BSON.BSON_INT32_MIN && value <= BSON.BSON_INT32_MAX) {
           // Set int type 32 bits or less
           buffer[index++] = BSON.BSON_DATA_INT;          
+          // Number of written bytes
+          var numberOfWrittenBytes = buffer instanceof Uint8Array ? writeToTypedArray(buffer, name, index) : buffer.write(name, index, 'utf8');
           // Encode the name
-          index = index + buffer.write(name, index, 'utf8') + 1;
+          index = index + numberOfWrittenBytes + 1;
           buffer[index - 1] = 0;          
           // Write the int value
           buffer[index++] = value & 0xff;                      
@@ -415,18 +448,22 @@ var packElement = function(name, value, checkKeys, buffer, index, serializeFunct
         } else if(value >= BSON.JS_INT_MIN && value <= BSON.JS_INT_MAX) {
           // Encode as double
           buffer[index++] = BSON.BSON_DATA_NUMBER;
+          // Number of written bytes
+          var numberOfWrittenBytes = buffer instanceof Uint8Array ? writeToTypedArray(buffer, name, index) : buffer.write(name, index, 'utf8');
           // Encode the name
-          index = index + buffer.write(name, index, 'utf8') + 1;
+          index = index + numberOfWrittenBytes + 1;
           buffer[index - 1] = 0;          
           // Write float
-          ieee754.writeIEEE754(buffer, value, index, 'little', 52, 8);
+          writeIEEE754(buffer, value, index, 'little', 52, 8);
           // Ajust index
           index = index + 8;                      
         } else {
           // Set long type
           buffer[index++] = BSON.BSON_DATA_LONG;          
+          // Number of written bytes
+          var numberOfWrittenBytes = buffer instanceof Uint8Array ? writeToTypedArray(buffer, name, index) : buffer.write(name, index, 'utf8');
           // Encode the name
-          index = index + buffer.write(name, index, 'utf8') + 1;
+          index = index + numberOfWrittenBytes + 1;
           buffer[index - 1] = 0;          
           var longVal = Long.fromNumber(value);
           var lowBits = longVal.getLowBits();
@@ -445,11 +482,13 @@ var packElement = function(name, value, checkKeys, buffer, index, serializeFunct
       } else {
         // Encode as double
         buffer[index++] = BSON.BSON_DATA_NUMBER;
+        // Number of written bytes
+        var numberOfWrittenBytes = buffer instanceof Uint8Array ? writeToTypedArray(buffer, name, index) : buffer.write(name, index, 'utf8');
         // Encode the name
-        index = index + buffer.write(name, index, 'utf8') + 1;
+        index = index + numberOfWrittenBytes + 1;
         buffer[index - 1] = 0;          
         // Write float
-        ieee754.writeIEEE754(buffer, value, index, 'little', 52, 8);
+        writeIEEE754(buffer, value, index, 'little', 52, 8);
         // Ajust index
         index = index + 8;                      
       }
@@ -458,15 +497,19 @@ var packElement = function(name, value, checkKeys, buffer, index, serializeFunct
     case 'undefined':
       // Set long type
       buffer[index++] = BSON.BSON_DATA_NULL;
+      // Number of written bytes
+      var numberOfWrittenBytes = buffer instanceof Uint8Array ? writeToTypedArray(buffer, name, index) : buffer.write(name, index, 'utf8');
       // Encode the name
-      index = index + buffer.write(name, index, 'utf8') + 1;
+      index = index + numberOfWrittenBytes + 1;
       buffer[index - 1] = 0;
       return index;      
     case 'boolean':
       // Write the type
       buffer[index++] = BSON.BSON_DATA_BOOLEAN;
+      // Number of written bytes
+      var numberOfWrittenBytes = buffer instanceof Uint8Array ? writeToTypedArray(buffer, name, index) : buffer.write(name, index, 'utf8');
       // Encode the name
-      index = index + buffer.write(name, index, 'utf8') + 1;
+      index = index + numberOfWrittenBytes + 1;
       buffer[index - 1] = 0;
       // Encode the boolean value
       buffer[index++] = value ? 1 : 0;
@@ -483,26 +526,33 @@ var packElement = function(name, value, checkKeys, buffer, index, serializeFunct
           buffer[index++] = BSON.BSON_DATA_MAX_KEY;
         }
       
+        // Number of written bytes
+        var numberOfWrittenBytes = buffer instanceof Uint8Array ? writeToTypedArray(buffer, name, index) : buffer.write(name, index, 'utf8');
         // Encode the name
-        index = index + buffer.write(name, index, 'utf8') + 1;
+        index = index + numberOfWrittenBytes + 1;
         buffer[index - 1] = 0;
         return index;
       } else if(value instanceof ObjectID || value['_bsontype'] == 'ObjectID') {
         // Write the type
         buffer[index++] = BSON.BSON_DATA_OID;
+        // Number of written bytes
+        var numberOfWrittenBytes = buffer instanceof Uint8Array ? writeToTypedArray(buffer, name, index) : buffer.write(name, index, 'utf8');
         // Encode the name
-        index = index + buffer.write(name, index, 'utf8') + 1;
+        index = index + numberOfWrittenBytes + 1;
         buffer[index - 1] = 0;
+
         // Write objectid
-        buffer.write(value.id, index, 'binary');
+        buffer instanceof Uint8Array ? writeToTypedArray(buffer, value.id, index) : buffer.write(value.id, index, 'binary');
         // Ajust index
         index = index + 12;
         return index;
       } else if(value instanceof Date) {
         // Write the type
         buffer[index++] = BSON.BSON_DATA_DATE;
+        // Number of written bytes
+        var numberOfWrittenBytes = buffer instanceof Uint8Array ? writeToTypedArray(buffer, name, index) : buffer.write(name, index, 'utf8');
         // Encode the name
-        index = index + buffer.write(name, index, 'utf8') + 1;
+        index = index + numberOfWrittenBytes + 1;
         buffer[index - 1] = 0;
         
         // Write the date
@@ -520,11 +570,13 @@ var packElement = function(name, value, checkKeys, buffer, index, serializeFunct
         buffer[index++] = (highBits >> 16) & 0xff;
         buffer[index++] = (highBits >> 24) & 0xff;      
         return index;        
-      } else if(Buffer.isBuffer(value)) {
+      } else if(typeof Buffer !== 'undefined' && Buffer.isBuffer(value)) {
         // Write the type
         buffer[index++] = BSON.BSON_DATA_BINARY;
+        // Number of written bytes
+        var numberOfWrittenBytes = buffer instanceof Uint8Array ? writeToTypedArray(buffer, name, index) : buffer.write(name, index, 'utf8');
         // Encode the name
-        index = index + buffer.write(name, index, 'utf8') + 1;
+        index = index + numberOfWrittenBytes + 1;
         buffer[index - 1] = 0;
         // Get size of the buffer (current write point)
         var size = value.length;
@@ -543,8 +595,10 @@ var packElement = function(name, value, checkKeys, buffer, index, serializeFunct
       } else if(value instanceof Long || value instanceof Timestamp || value['_bsontype'] == 'Long' || value['_bsontype'] == 'Timestamp') {
         // Write the type
         buffer[index++] = value instanceof Long ? BSON.BSON_DATA_LONG : BSON.BSON_DATA_TIMESTAMP;
+        // Number of written bytes
+        var numberOfWrittenBytes = buffer instanceof Uint8Array ? writeToTypedArray(buffer, name, index) : buffer.write(name, index, 'utf8');
         // Encode the name
-        index = index + buffer.write(name, index, 'utf8') + 1;
+        index = index + numberOfWrittenBytes + 1;
         buffer[index - 1] = 0;
         // Write the date
         var lowBits = value.getLowBits();
@@ -563,27 +617,31 @@ var packElement = function(name, value, checkKeys, buffer, index, serializeFunct
       } else if(value instanceof Double || value['_bsontype'] == 'Double') {
         // Encode as double
         buffer[index++] = BSON.BSON_DATA_NUMBER;
+        // Number of written bytes
+        var numberOfWrittenBytes = buffer instanceof Uint8Array ? writeToTypedArray(buffer, name, index) : buffer.write(name, index, 'utf8');
         // Encode the name
-        index = index + buffer.write(name, index, 'utf8') + 1;
+        index = index + numberOfWrittenBytes + 1;
         buffer[index - 1] = 0;          
         // Write float
-        ieee754.writeIEEE754(buffer, value, index, 'little', 52, 8);
+        writeIEEE754(buffer, value, index, 'little', 52, 8);
         // Ajust index
         index = index + 8;
         return index;
-      } else if(value instanceof Code || value['_bsontype'] == 'Code') {
+      } else if(value instanceof Code || value['_bsontype'] == 'Code') {        
         if(value.scope != null && Object.keys(value.scope).length > 0) {          
           // Write the type
           buffer[index++] = BSON.BSON_DATA_CODE_W_SCOPE;
+          // Number of written bytes
+          var numberOfWrittenBytes = buffer instanceof Uint8Array ? writeToTypedArray(buffer, name, index) : buffer.write(name, index, 'utf8');
           // Encode the name
-          index = index + buffer.write(name, index, 'utf8') + 1;
+          index = index + numberOfWrittenBytes + 1;
           buffer[index - 1] = 0;
           // Calculate the scope size
-          var scopeSize = BSON.calculateObjectSize(value.scope);
+          var scopeSize = BSON.calculateObjectSize(value.scope, serializeFunctions, !(buffer instanceof Uint8Array));
           // Function string
           var functionString = value.code.toString();
           // Function Size
-          var codeSize = Buffer.byteLength(functionString) + 1;
+          var codeSize = buffer instanceof Uint8Array ? numberOfBytes(functionString) + 1 : Buffer.byteLength(functionString) + 1;
 
           // Calculate full size of the object
           var totalSize = 4 + codeSize + scopeSize + 4;
@@ -601,13 +659,13 @@ var packElement = function(name, value, checkKeys, buffer, index, serializeFunct
           buffer[index++] = (codeSize >> 24) & 0xff;     
 
           // Write the string
-          buffer.write(functionString, index, 'utf8');
+          buffer instanceof Uint8Array ? writeToTypedArray(buffer, functionString, index) : buffer.write(functionString, index, 'utf8');          
           // Update index
           index = index + codeSize - 1;
           // Write zero
           buffer[index++] = 0;
           // Serialize the scope object          
-          var scopeObjectBuffer = new Buffer(scopeSize);
+          var scopeObjectBuffer = buffer instanceof Uint8Array ? new Uint8Array(new ArrayBuffer(scopeSize)) : new Buffer(scopeSize);
           // Execute the serialization into a seperate buffer
           serializeObject(value.scope, checkKeys, scopeObjectBuffer, 0, serializeFunctions);
           
@@ -620,8 +678,7 @@ var packElement = function(name, value, checkKeys, buffer, index, serializeFunct
           buffer[index++] = (scopeDocSize >> 24) & 0xff;     
           
           // Write the scopeObject into the buffer
-          scopeObjectBuffer.copy(buffer, index, 0, scopeSize);
-
+          buffer instanceof Uint8Array ? buffer.set(scopeObjectBuffer, index): scopeObjectBuffer.copy(buffer, index, 0, scopeSize);
           // Adjust index, removing the empty size of the doc (5 bytes 0000000005)
           index = index + scopeDocSize - 5;          
           // Write trailing zero
@@ -629,13 +686,15 @@ var packElement = function(name, value, checkKeys, buffer, index, serializeFunct
           return index
         } else {
           buffer[index++] = BSON.BSON_DATA_CODE;
+          // Number of written bytes
+          var numberOfWrittenBytes = buffer instanceof Uint8Array ? writeToTypedArray(buffer, name, index) : buffer.write(name, index, 'utf8');
           // Encode the name
-          index = index + buffer.write(name, index, 'utf8') + 1;
+          index = index + numberOfWrittenBytes + 1;
           buffer[index - 1] = 0;
           // Function string
           var functionString = value.code.toString();
           // Function Size
-          var size = Buffer.byteLength(functionString) + 1;
+          var size = buffer instanceof Uint8Array ? numberOfBytes(functionString) + 1 : Buffer.byteLength(functionString) + 1;
           // Write the size of the string to buffer
           buffer[index++] = size & 0xff;
           buffer[index++] = (size >> 8) & 0xff;
@@ -652,8 +711,10 @@ var packElement = function(name, value, checkKeys, buffer, index, serializeFunct
       } else if(value instanceof Binary || value['_bsontype'] == 'Binary') {
         // Write the type
         buffer[index++] = BSON.BSON_DATA_BINARY;
+        // Number of written bytes
+        var numberOfWrittenBytes = buffer instanceof Uint8Array ? writeToTypedArray(buffer, name, index) : buffer.write(name, index, 'utf8');
         // Encode the name
-        index = index + buffer.write(name, index, 'utf8') + 1;
+        index = index + numberOfWrittenBytes + 1;
         buffer[index - 1] = 0;
         // Extract the buffer
         var data = value.value(true);        
@@ -667,18 +728,20 @@ var packElement = function(name, value, checkKeys, buffer, index, serializeFunct
         // Write the subtype to the buffer
         buffer[index++] = value.sub_type;
         // Write the data to the object
-        data.copy(buffer, index, 0, value.position);
+        buffer instanceof Uint8Array ? buffer.set(data, index): data.copy(buffer, index, 0, value.position);
         // Ajust index
         index = index + value.position;
         return index;
       } else if(value instanceof Symbol || value['_bsontype'] == 'Symbol') {
         // Write the type
         buffer[index++] = BSON.BSON_DATA_SYMBOL;
+        // Number of written bytes
+        var numberOfWrittenBytes = buffer instanceof Uint8Array ? writeToTypedArray(buffer, name, index) : buffer.write(name, index, 'utf8');
         // Encode the name
-        index = index + buffer.write(name, index, 'utf8') + 1;
+        index = index + numberOfWrittenBytes + 1;
         buffer[index - 1] = 0;
         // Calculate size
-        size = Buffer.byteLength(value.value) + 1;
+        var size = buffer instanceof Uint8Array ? numberOfBytes(value.value) + 1 : Buffer.byteLength(value.value) + 1;
         // Write the size of the string to buffer
         buffer[index++] = size & 0xff;
         buffer[index++] = (size >> 8) & 0xff;
@@ -694,8 +757,10 @@ var packElement = function(name, value, checkKeys, buffer, index, serializeFunct
       } else if(value instanceof DBRef || value['_bsontype'] == 'DBRef') {
         // Write the type
         buffer[index++] = BSON.BSON_DATA_OBJECT;
+        // Number of written bytes
+        var numberOfWrittenBytes = buffer instanceof Uint8Array ? writeToTypedArray(buffer, name, index) : buffer.write(name, index, 'utf8');
         // Encode the name
-        index = index + buffer.write(name, index, 'utf8') + 1;
+        index = index + numberOfWrittenBytes + 1;
         buffer[index - 1] = 0;
         // Set up correct object for serialization
         var ordered_values = {
@@ -709,7 +774,7 @@ var packElement = function(name, value, checkKeys, buffer, index, serializeFunct
         }
 
         // Message size
-        var size = BSON.calculateObjectSize(ordered_values);
+        var size = BSON.calculateObjectSize(ordered_values, serializeFunctions, !(buffer instanceof Uint8Array));
         // Serialize the object
         var endIndex = BSON.serializeWithBufferAndIndex(ordered_values, checkKeys, buffer, index, serializeFunctions);
         // Write the size of the string to buffer
@@ -721,17 +786,19 @@ var packElement = function(name, value, checkKeys, buffer, index, serializeFunct
         buffer[endIndex++] = 0x00;
         // Return the end index
         return endIndex;
-      } else if(value instanceof RegExp || toString.call(value) === '[object RegExp]') {
+      } else if(value instanceof RegExp || String.call(value) === '[object RegExp]') {
         // Write the type
         buffer[index++] = BSON.BSON_DATA_REGEXP;
+        // Number of written bytes
+        var numberOfWrittenBytes = buffer instanceof Uint8Array ? writeToTypedArray(buffer, name, index) : buffer.write(name, index, 'utf8');
         // Encode the name
-        index = index + buffer.write(name, index, 'utf8') + 1;
+        index = index + numberOfWrittenBytes + 1;
         buffer[index - 1] = 0;
 
         // Write the regular expression string
-        buffer.write(value.source, index, 'utf8');
+        buffer instanceof Uint8Array ? writeToTypedArray(buffer, value.source, index) : buffer.write(value.source, index, 'utf8');
         // Adjust the index
-        index = index + Buffer.byteLength(value.source);
+        index = index + (buffer instanceof Uint8Array ? numberOfBytes(value.source) : Buffer.byteLength(value.source));
         // Write zero
         buffer[index++] = 0x00;        
         // Write the parameters
@@ -743,9 +810,11 @@ var packElement = function(name, value, checkKeys, buffer, index, serializeFunct
         return index;
       } else {
         // Write the type
-        buffer[index++] = Array.isArray(value) ? BSON.BSON_DATA_ARRAY : BSON.BSON_DATA_OBJECT;
-        // Encode the name
-        index = index + buffer.write(name, index, 'utf8') + 1;
+        buffer[index++] = Array.isArray(value) ? BSON.BSON_DATA_ARRAY : BSON.BSON_DATA_OBJECT;        
+        // Number of written bytes
+        var numberOfWrittenBytes = buffer instanceof Uint8Array ? writeToTypedArray(buffer, name, index) : buffer.write(name, index, 'utf8');
+        // Adjust the index
+        index = index + numberOfWrittenBytes + 1;
         buffer[index - 1] = 0;
         // Serialize the object
         var endIndex = serializeObject(value, checkKeys, buffer, index + 4, serializeFunctions);
@@ -760,17 +829,19 @@ var packElement = function(name, value, checkKeys, buffer, index, serializeFunct
       }
     case 'function':
       // WTF for 0.4.X where typeof /someregexp/ === 'function'
-      if(value instanceof RegExp || toString.call(value) === '[object RegExp]') {        
+      if(value instanceof RegExp || String.call(value) === '[object RegExp]') {        
         // Write the type
         buffer[index++] = BSON.BSON_DATA_REGEXP;
+        // Number of written bytes
+        var numberOfWrittenBytes = buffer instanceof Uint8Array ? writeToTypedArray(buffer, name, index) : buffer.write(name, index, 'utf8');
         // Encode the name
-        index = index + buffer.write(name, index, 'utf8') + 1;
+        index = index + numberOfWrittenBytes + 1;
         buffer[index - 1] = 0;
 
         // Write the regular expression string
         buffer.write(value.source, index, 'utf8');
         // Adjust the index
-        index = index + Buffer.byteLength(value.source);
+        index = index + (buffer instanceof Uint8Array ? numberOfBytes(value.source) : Buffer.byteLength(value.source));
         // Write zero
         buffer[index++] = 0x00;        
         // Write the parameters
@@ -784,15 +855,17 @@ var packElement = function(name, value, checkKeys, buffer, index, serializeFunct
         if(serializeFunctions && value.scope != null && Object.keys(value.scope).length > 0) {
           // Write the type
           buffer[index++] = BSON.BSON_DATA_CODE_W_SCOPE;
+          // Number of written bytes
+          var numberOfWrittenBytes = buffer instanceof Uint8Array ? writeToTypedArray(buffer, name, index) : buffer.write(name, index, 'utf8');
           // Encode the name
-          index = index + buffer.write(name, index, 'utf8') + 1;
+          index = index + numberOfWrittenBytes + 1;
           buffer[index - 1] = 0;
           // Calculate the scope size
-          var scopeSize = BSON.calculateObjectSize(value.scope);
+          var scopeSize = BSON.calculateObjectSize(value.scope, serializeFunctions, !(buffer instanceof Uint8Array));
           // Function string
           var functionString = value.toString();
           // Function Size
-          var codeSize = Buffer.byteLength(functionString) + 1;
+          var codeSize = buffer instanceof Uint8Array ? numberOfBytes(functionString) + 1 : Buffer.byteLength(functionString) + 1;
 
           // Calculate full size of the object
           var totalSize = 4 + codeSize + scopeSize;
@@ -838,13 +911,15 @@ var packElement = function(name, value, checkKeys, buffer, index, serializeFunct
           return index
         } else if(serializeFunctions) {
           buffer[index++] = BSON.BSON_DATA_CODE;
+          // Number of written bytes
+          var numberOfWrittenBytes = buffer instanceof Uint8Array ? writeToTypedArray(buffer, name, index) : buffer.write(name, index, 'utf8');
           // Encode the name
-          index = index + buffer.write(name, index, 'utf8') + 1;
+          index = index + numberOfWrittenBytes + 1;
           buffer[index - 1] = 0;
           // Function string
           var functionString = value.toString();
           // Function Size
-          var size = Buffer.byteLength(functionString) + 1;
+          var size = buffer instanceof Uint8Array ? numberOfBytes(functionString) + 1 : Buffer.byteLength(functionString) + 1;
           // Write the size of the string to buffer
           buffer[index++] = size & 0xff;
           buffer[index++] = (size >> 8) & 0xff;
@@ -876,7 +951,9 @@ var packElement = function(name, value, checkKeys, buffer, index, serializeFunct
  * @api public
  */
 BSON.serialize = function(object, checkKeys, asBuffer, serializeFunctions) {
-  var buffer = new Buffer(BSON.calculateObjectSize(object, serializeFunctions));
+  var size = BSON.calculateObjectSize(object, serializeFunctions, asBuffer);
+  // If asBuffer is false use typed arrays
+  var buffer = typeof Buffer !== 'undefined' ? new Buffer(size) : new Uint8Array(new ArrayBuffer(size));  
   BSON.serializeWithBufferAndIndex(object, checkKeys, buffer, 0, serializeFunctions);
   return buffer;
 }
@@ -989,6 +1066,31 @@ var isolateEval = function(functionString) {
 }
 
 /**
+ * Convert Uint8Array to String
+ *
+ * @ignore
+ * @api private
+ */
+var convertUint8ArrayToUtf8String = function(byteArray, startIndex, endIndex) {
+  var str = '';
+  for (var i = startIndex; i < endIndex; i++)
+      str +=  byteArray[i] <= 0x7F?
+              byteArray[i] === 0x25 ? "%25" : // %
+              String.fromCharCode(byteArray[i]) :
+              "%" + byteArray[i].toString(16).toUpperCase();              
+  return decodeURIComponent(str);
+}
+
+var convertArraytoUtf8BinaryString = function(byteArray, startIndex, endIndex) {
+  var result = "";
+  for(var i = startIndex; i < endIndex; i++) {
+    result = result + String.fromCharCode(byteArray[i]);
+  }
+  
+  return result;  
+};
+
+/**
  * Deserialize data as BSON.
  *
  * Options
@@ -1019,9 +1121,9 @@ BSON.deserialize = function(buffer, options, isArray) {
     // Get the start search index
     var i = index;
     // Locate the end of the c string
-    while(buffer[i] !== 0x00) { i++ }    
+    while(buffer[i] !== 0x00) { i++ }
     // Grab utf8 encoded string
-    var string = buffer.toString('utf8', index, i);
+    var string = buffer instanceof Uint8Array ? convertUint8ArrayToUtf8String(buffer, index, i) : buffer.toString('utf8', index, i);
     // Update index position
     index = i + 1;
     // Return string
@@ -1035,7 +1137,7 @@ BSON.deserialize = function(buffer, options, isArray) {
   var size = buffer[index++] | buffer[index++] << 8 | buffer[index++] << 16 | buffer[index++] << 24;
   
   // Ensure buffer is valid size
-  if(size < 0 || size > buffer.length) throw new Error("corrupt bson message");
+  if(size < 5 || size > buffer.length) throw new Error("corrupt bson message");
 
   // While we have more left data left keep parsing
   while(true) {
@@ -1048,8 +1150,9 @@ BSON.deserialize = function(buffer, options, isArray) {
     // Switch on the type
     switch(elementType) {
       case BSON.BSON_DATA_OID:
+        var string = buffer instanceof Uint8Array ? convertArraytoUtf8BinaryString(buffer, index, index + 12) : buffer.toString('binary', index, index + 12);
         // Decode the oid
-        object[name] = new ObjectID(buffer.toString('binary', index, index + 12));
+        object[name] = new ObjectID(string);
         // Update index
         index = index + 12;
         break;          
@@ -1057,7 +1160,7 @@ BSON.deserialize = function(buffer, options, isArray) {
         // Read the content of the field
         var stringSize = buffer[index++] | buffer[index++] << 8 | buffer[index++] << 16 | buffer[index++] << 24;
         // Add string to object
-        object[name] = buffer.toString('utf8', index, index + stringSize - 1);
+        object[name] = buffer instanceof Uint8Array ? convertUint8ArrayToUtf8String(buffer, index, index + stringSize - 1) : buffer.toString('utf8', index, index + stringSize - 1);
         // Update parse index position
         index = index + stringSize;
         break;
@@ -1067,7 +1170,7 @@ BSON.deserialize = function(buffer, options, isArray) {
         break;
       case BSON.BSON_DATA_NUMBER:
         // Decode the double value
-        object[name] = ieee754.readIEEE754(buffer, index, 'little', 52, 8);
+        object[name] = readIEEE754(buffer, index, 'little', 52, 8);
         // Update the index
         index = index + 8;
         break;
@@ -1174,7 +1277,7 @@ BSON.deserialize = function(buffer, options, isArray) {
         // Read the content of the field
         var stringSize = buffer[index++] | buffer[index++] << 8 | buffer[index++] << 16 | buffer[index++] << 24;
         // Function string
-        var functionString = buffer.toString('utf8', index, index + stringSize - 1);
+        var functionString = buffer instanceof Uint8Array ? convertUint8ArrayToUtf8String(buffer, index, index + stringSize - 1) : buffer.toString('utf8', index, index + stringSize - 1);
 
         // If we are evaluating the functions
         if(evalFunctions) {
@@ -1201,7 +1304,7 @@ BSON.deserialize = function(buffer, options, isArray) {
         var totalSize = buffer[index++] | buffer[index++] << 8 | buffer[index++] << 16 | buffer[index++] << 24;
         var stringSize = buffer[index++] | buffer[index++] << 8 | buffer[index++] << 16 | buffer[index++] << 24;
         // Javascript function
-        var functionString = buffer.toString('utf8', index, index + stringSize - 1);
+        var functionString = buffer instanceof Uint8Array ? convertUint8ArrayToUtf8String(buffer, index, index + stringSize - 1) : buffer.toString('utf8', index, index + stringSize - 1);
         // Update parse index position
         index = index + stringSize;
         // Parse the element
@@ -1322,8 +1425,8 @@ BSON.prototype.serialize = function(object, checkKeys, asBuffer, serializeFuncti
  * @return {Number} returns the number of bytes the BSON object will take up.
  * @api public
  */
-BSON.prototype.calculateObjectSize = function(object, serializeFunctions) {
-  return BSON.calculateObjectSize(object, serializeFunctions);
+BSON.prototype.calculateObjectSize = function(object, serializeFunctions, isBuffer) {  
+  return BSON.calculateObjectSize(object, serializeFunctions, isBuffer);
 }
 
 /**
