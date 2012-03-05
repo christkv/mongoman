@@ -90,7 +90,7 @@ var createRemoteGhostPlayer = function(data) {
         // Grab the mongoman object
         var mongoman = isMongoman ? gbox.getObject("player", "mongoman") : gbox.getObject("ghosts", "mongoman");
         // Check if we have a collision
-        if(mongoman != null && gbox.collides(this, mongoman, 2)) {         
+        if(isMongoman && mongoman != null && gbox.collides(this, mongoman, 2)) {         
           // If we are chasing him he is dead
           if(this.status == "chasing") {
             // Stop the game for a time

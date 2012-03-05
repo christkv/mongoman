@@ -42,8 +42,6 @@ app.get('/', function(req, res) {
 app.get('/delete', function(req, res) {
   // Remove all boards from play
   state.boardCollection.update({number_of_players: {$lt:100}}, {$set:{number_of_players:100}}, {multi:true});            
-  // Clean up cache of boards
-  boardsInPlay = {};
   // Render the index again
   res.render('index', { layout: false });
 })
@@ -112,9 +110,6 @@ var wsServer = new WebSocketServer({
   fragmentOutgoingMessages: false
 });
 
-// Contains all boards in play
-var boardsInPlay = {};
-
 // Kill a board
 var killBoard = function(_state, connection) {
   console.log("============================================ KILL BOARD")
@@ -123,7 +118,7 @@ var killBoard = function(_state, connection) {
       // Message all players that we are dead
       if(board != null) {
         for(var i = 0; i < board.players.length; i++) {
-          if(board.players[i] != connection.connectionId) _state.connections[board.players[i]].sendUTF(JSON.stringify({state:'dead'}));
+          if(board.players[i] != connection.connectionId && _state.connections[board.players[i]] != null) _state.connections[board.players[i]].sendUTF(JSON.stringify({state:'dead'}));
         }
       }      
     });
@@ -135,11 +130,7 @@ var initializeBoard = function(_state, connection) {
   // using findAndModify to ensure we are the only one changing the board
   _state.boardCollection.findAndModify({number_of_players: {$lt:5}}, [], {
         $inc: {number_of_players: 1}, $push: {players:connection.connectionId}
-      }, {new:true, upsert:false}, function(err, board) {
-    // console.log("++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++")
-    // console.dir(err)
-    // console.dir(board)
-        
+      }, {new:true, upsert:false}, function(err, board) {        
     // If we have no board let's create one
     if(board == null) {
       // console.log("========================================= new board")
@@ -149,8 +140,6 @@ var initializeBoard = function(_state, connection) {
           number_of_players: 1,
           players: [connection.connectionId, 0, 0, 0, 0]
         }
-      // Save in cache if not available for quick lookup
-      if(boardsInPlay[newBoard._id.id] == null) boardsInPlay[newBoard._id.id] = newBoard;
       // Save the board to the db, don't care about safe at this point as we don't need it yet
       _state.boardCollection.insert(newBoard);
       // Update the player array
@@ -161,8 +150,6 @@ var initializeBoard = function(_state, connection) {
       connection.sendUTF(JSON.stringify({state:'initialize', isMongoman:true}));
     } else {
       // console.log("========================================= existing board")
-      // Save in cache if not available for quick lookup
-      if(boardsInPlay[board._id.id] == null) boardsInPlay[boards._id.id] = board;
       // Prime the board game with the ghost
       _state.gameCollection.insert({id:connection.connectionId, b:board._id, role:'g', state:'n', pos:{x:0, y:0, accx:0, accy:0, facing:0, xpushing:0, ypushing:0}});
       // There is a board, we are a ghost, message the user that we are ready and also send the state of the board
@@ -195,7 +182,7 @@ wsServer.on('request', function(request) {
   // Save the connection to the current state
   state.connections[connection.connectionId] = connection;
   
-  // console.log(connection.remoteAddress + " connected - Protocol Version " + connection.websocketVersion);
+  console.log(connection.connectionId + " connected - Protocol Version " + connection.websocketVersion);
   
   // Handle closed connections
   connection.on('close', function() {      
@@ -221,63 +208,22 @@ wsServer.on('request', function(request) {
         killBoard(state, self);
       }
     } else if(message.type == 'binary') {
-      // console.log("-------------------------------- update player :: " + self.connectionId)
-      // console.dir(BSON.deserialize(message.binaryData))
-
       // Binary message update player position
       state.gameCollection.update({'id': self.connectionId}, message.binaryData);
-      // Check if we have the board in play in the cache
-      var keys = Object.keys(boardsInPlay);
-      var board = null;
-
-      // console.dir(boardsInPlay)
-      
-      for(var i = 0; i < keys.length; i++) {        
-        if(boardsInPlay[keys[i]].players.indexOf(self.connectionId) != -1) {
-          board = boardsInPlay[keys[i]];
-          break;
-        }
-      }
-
-      // Check if we have the cached board, otherwise retrive it from mongo
-      if(board) {
+      // Find the board and cache it
+      state.boardCollection.findOne({'players': self.connectionId}, function(err, board) {
         // Let's grab the record
         state.gameCollection.findOne({'b':board._id, 'id': self.connectionId}, {raw:true}, function(err, rawDoc) {
-          // console.log("========================================================= board")
-          // console.dir(rawDoc)
-
-          // Send the data to all the connections expect the originating connection
-          for(var i = 0; i < board.players.length; i++) {
-            if(board.players[i] != self.connectionId && board.players[i] != 0) {
-              if(state.connections[board.players[i]] != null) state.connections[board.players[i]].sendBytes(rawDoc);
-            }
-          }                  
-        });        
-      } else {
-        // console.log("========================================================= no board")
-        // Find the board and cache it
-        state.boardCollection.findOne({'players': self.connectionId}, function(err, board) {
-          // console.dir(board)
-          // console.dir({'b':board._id, 'id': self.connectionId})
-          // Let's grab the record
-          state.gameCollection.findOne({'b':board._id, 'id': self.connectionId}, {raw:true}, function(err, rawDoc) {
-            // console.dir(err)
-            // console.dir(rawDoc)
-            
-            if(rawDoc) {
-              // Cache the team
-              boardsInPlay[board._id.id] = board;
-
-              // Send the data to all the connections expect the originating connection
-              for(var i = 0; i < board.players.length; i++) {
-                if(board.players[i] != self.connectionId) {
-                  if(state.connections[board.players[i]] != null) state.connections[board.players[i]].sendBytes(rawDoc);
-                }
-              }              
-            }            
-          });
+          if(rawDoc) {
+            // Send the data to all the connections expect the originating connection
+            for(var i = 0; i < board.players.length; i++) {
+              if(board.players[i] != self.connectionId) {
+                if(state.connections[board.players[i]] != null) state.connections[board.players[i]].sendBytes(rawDoc);
+              }
+            }              
+          }            
         });
-      }
+      });
     }
   });  
 });

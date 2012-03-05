@@ -35,8 +35,7 @@ var createPlayerGhost = function() {
 		
   	first: function() { 
   	  // Ensure we are showing the current correct frame out of 10 possible
-  		this.counter = (this.counter+1) % 10;
-				
+  		this.counter = (this.counter+1) % 10;				
   		// If capman is still alive and the game is not "hold" (level changing fadein/fadeouts etc.) and the "bullet timer" is not stopping the game.
   		if(!maingame.gameIsHold() && !maingame.bullettimer) {		
     		// The nuber of ticks the ghost i in danger
@@ -55,9 +54,6 @@ var createPlayerGhost = function() {
   			// First of all, let's move.
   			// A little trick: capman cannot change direction, if hits a wall, so we backup capman's status here. Will restored if capman hits the wall.
   			var olddata = help.createModel(this,["x","y","accx","accy","xpushing","ypushing","facing"]);
-        // console.log("================== old data")
-        // console.dir(olddata)
-			
   			// Set up the control keys for the player
   			toys.topview.controlKeys(this,{left:"left",right:"right",up:"up",down:"down"});
   			// Apply forces to the model

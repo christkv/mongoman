@@ -47,7 +47,7 @@ GameCommunication.prototype.handleWebsocketOpen = function() {
 // Handle the web socket messages
 GameCommunication.prototype.handleWebsocketMessage = function(message) {
   // Let's add the message to the incoming message array
-  // console.log("==================================== received message")
+  console.log("==================================== received message")
   // console.dir(message)
   // console.log(message.data)
   if(message.data instanceof ArrayBuffer) {

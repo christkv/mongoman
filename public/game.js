@@ -112,6 +112,7 @@ var go = function() {
   	gbox.trashGroup("sparks");
   	gbox.trashGroup("ghosts");
   	gbox.purgeGarbage();
+  	maingame.bullettimer=0
   	
   	// Spawn the main character
   	if(isMongoman) {
@@ -138,6 +139,7 @@ var go = function() {
     // When the web socket connects
     //
     var onMessageCallback = function(message) {
+      console.log("-----------------------------------")
       // JSON message
       if(message['state'] == 'initialize') {
         isMongoman = message['isMongoman'];
