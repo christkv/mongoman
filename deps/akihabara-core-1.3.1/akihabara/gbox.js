@@ -11,6 +11,7 @@ var dynalist={
 			dl:0,
 			gar:[],
 			disconnect:function(obd) {
+			  if(this.data[obd] == null) return;
 				if (this.data[obd].__first!=null)  this.data[this.data[obd].__first].__next=this.data[obd].__next; else this.first=this.data[obd].__next;
 				if (this.data[obd].__next!=null)  this.data[this.data[obd].__next].__first=this.data[obd].__first; else this.last=this.data[obd].__first;
 			},

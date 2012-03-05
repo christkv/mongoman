@@ -26,6 +26,10 @@ GameCommunication.prototype.connect = function(callback) {
   this.messages = [];
 }
 
+GameCommunication.prototype.close = function() {
+  this.socket.close();
+}
+
 // Dispatch a command
 GameCommunication.prototype.dispatchCommand = function(command) {
   if(command instanceof ArrayBuffer) {    
