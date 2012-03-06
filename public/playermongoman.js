@@ -34,11 +34,9 @@ var createPlayerMongoman = function() {
 		
   	first: function() { 
   	  // Ensure we are showing the current correct frame out of 10 possible
-  		this.counter = (this.counter+1) % 10;
-		
+  		this.counter = (this.counter+1) % 10;		
   		 // If capman is still alive and the game is not "hold" (level changing fadein/fadeouts etc.) and the "bullet timer" is not stopping the game.
   		if(!this.killed && !maingame.gameIsHold() && !maingame.bullettimer) {
-		
   			// First of all, let's move.
   			// A little trick: capman cannot change direction, if hits a wall, so we backup capman's status here. Will restored if capman hits the wall.
   			var olddata = help.createModel(this,["x","y","accx","accy","xpushing","ypushing","facing"]);
@@ -48,61 +46,61 @@ var createPlayerMongoman = function() {
   			toys.topview.applyForces(this);
 
   			// Handle collisions with the map, accuracy and tolerance controls how precise the collision detection is			
-  			toys.topview.tileCollision(this, maze, "map", null, {tolerance:0,approximation:1});
-			
-  			// Dont't transmit collisions
-  			var collision = false;
-			
+  			toys.topview.tileCollision(this, maze, "map", null, {tolerance: 0, approximation: 1});
+  						
   			// If we have a collision
-  			if(this.touchedup||this.toucheddown||this.touchedleft||this.touchedright) {
-  				help.copyModel(this,olddata); 
+  			if(this.touchedup || this.toucheddown || this.touchedleft || this.touchedright) {  			  
+  				help.copyModel(this, olddata); 
   				toys.topview.applyForces(this); 
   				toys.topview.tileCollision(this, maze, "map", null, {tolerance:0,approximation:1});
-  				collision = true;
+
+          // Build the object and send it to the server serialized
+          updateObject = {x:this.x, y:this.y, accx:this.accx, accy:this.accy,
+            xpushing:this.xpushing, ypushing:this.ypushing, facing:this.facing};
+  			} else {
+          if(olddata.x != this.x || olddata.y != this.y 
+            || olddata.accx != this.accx || olddata.accy != this.accy
+            || olddata.xpushing != this.xpushing || olddata.ypushing != this.ypushing
+            || olddata.facing != this.facing) {
+
+            // Build the object and send it to the server serialized
+            updateObject = {x:this.x, y:this.y, accx:this.accx, accy:this.accy,
+              xpushing:this.xpushing, ypushing:this.ypushing, facing:this.facing};
+          } else {
+            updateObject = null;
+          }          
   			}
 			
   			// The side warp. If capman reach one of the left or right side of the maze, is spawn on the other side,in the same direction
-  			if ((this.x<0)&&(this.facing==toys.FACE_LEFT)) {
+  			if ((this.x<0) && (this.facing == toys.FACE_LEFT)) {
   			  this.x = maze.w - this.w;
-  			} else if ((this.x>(maze.w-this.w)) && (this.facing == toys.FACE_RIGHT)) {
+  			} else if ((this.x > (maze.w - this.w)) && (this.facing == toys.FACE_RIGHT)) {
   			  this.x = 0;
   			}
 			
   			// setFrame sets the right frame checking the facing and the defined animations in "initialize"
   			toys.topview.setFrame(this); 
-
-        if(!collision && olddata.x != this.x || olddata.y != this.y 
-          || olddata.accx != this.accx || olddata.accy != this.accy
-          || olddata.xpushing != this.xpushing || olddata.ypushing != this.ypushing
-          || olddata.facing != this.facing) {
-          // Build the object and send it to the server serialized
-          updateObject = {x:this.x, y:this.y, accx:this.accx, accy:this.accy,
-            xpushing:this.xpushing, ypushing:this.ypushing, facing:this.facing};
-        } else {
-          updateObject = null;
-        }
 			
         // Grab the current tile in the map object
-        var inmouth = help.getTileInMap(this.x+this.hw,this.y+this.hh, maze, 0); // I'll explain this the next line.
-      
+        var inmouth = help.getTileInMap(this.x + this.hw, this.y + this.hh, maze, 0);
+  			
         // Handle pills
-        if (inmouth>7) {
-         if (inmouth == 9) {
-           if(sound) gbox.hitAudio("powerpill");
-           this.scorecombo = 1;         
-           if(gbox.getObject("ghosts","ghost1")) gbox.getObject("ghosts","ghost1").makeeatable();
-           if(gbox.getObject("ghosts","ghost2")) gbox.getObject("ghosts","ghost2").makeeatable();
-           if(gbox.getObject("ghosts","ghost3")) gbox.getObject("ghosts","ghost3").makeeatable();
-           if(gbox.getObject("ghosts","ghost4")) gbox.getObject("ghosts","ghost4").makeeatable();
-         } else {
-           if(sound) gbox.hitAudio("eat"); // If is a classic pill, play the classic "gabogabo" sound!         
-         }
+        if(inmouth>7) {
+          if(inmouth == 9) {
+            if(sound) gbox.hitAudio("powerpill");
+            if(gbox.getObject("ghosts","ghost1")) gbox.getObject("ghosts","ghost1").makeeatable();
+            if(gbox.getObject("ghosts","ghost2")) gbox.getObject("ghosts","ghost2").makeeatable();
+            if(gbox.getObject("ghosts","ghost3")) gbox.getObject("ghosts","ghost3").makeeatable();
+            if(gbox.getObject("ghosts","ghost4")) gbox.getObject("ghosts","ghost4").makeeatable();
+            if(gbox.getObject("player", "playerghost")) gbox.getObject("player","playerghost").makeeatable();
+          } else {
+            if(sound) gbox.hitAudio("eat");
+          }
 
-         var mouthx=help.xPixelToTileX(maze,this.x+this.hw); // Let's get the pill coordinate in the maze...
-         var mouthy=help.yPixelToTileY(maze,this.y+this.hh);
-         help.setTileInMap(gbox.getCanvasContext("mazecanvas"),maze,mouthx,mouthy,null); // ... and set a null tile over that.
-         // maingame.hud.addValue("score","value",10); // Player earns 10 points. "hud" items also stores their values and can be used to store the real score.
-         maingame.pillscount--; // Let's decrease the number of pills into the maze.
+          var mouthx = help.xPixelToTileX(maze,this.x + this.hw);
+          var mouthy = help.yPixelToTileY(maze,this.y + this.hh);
+          help.setTileInMap(gbox.getCanvasContext("mazecanvas"), maze, mouthx, mouthy, null);
+          maingame.pillscount--;
         }
   		}
   	},
@@ -115,7 +113,7 @@ var createPlayerMongoman = function() {
 	
   	// And now, a custom method. This one will kill the player and will be called by ghosts, when colliding with capman.
   	kill:function() {
-  	  console.log("===================================== DEAD");
+      // console.log("===================================== DEAD");
   	  if(!this.killed) {
   	    // Fire off I'm dead message
   	    client.dispatchCommand({type:'dead'});

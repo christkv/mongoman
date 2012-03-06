@@ -174,6 +174,36 @@ var cleanUpConnection = function(_state, connection) {
   }
 }
 
+var ghostDead = function(_state, connection, message) {
+  console.log("============================================ GHOST DEAD")
+  // Find the board the ghost died on
+  state.boardCollection.findOne({'players': connection.connectionId}, function(err, board) {
+    if(board) {
+      // Send the ghost is dead to all other players on the board
+      for(var i = 0; i < board.players.length; i++) {
+        if(board.players[i] != connection.connectionId) {
+          if(_state.connections[board.players[i]] != null) _state.connections[board.players[i]].sendUTF(JSON.stringify({state:'ghostdead', id:message.id}));
+        }
+      }                    
+    }    
+  });  
+}
+
+var mongomanWon = function(_state, connection) {
+  console.log("============================================ MONGOMAN WON")
+  // Find the board the game was done on
+  state.boardCollection.findOne({'players': connection.connectionId}, function(err, board) {
+    if(board) {
+      // Send the ghost is dead to all other players on the board
+      for(var i = 0; i < board.players.length; i++) {
+        if(board.players[i] != connection.connectionId) {
+          if(_state.connections[board.players[i]] != null) _state.connections[board.players[i]].sendUTF(JSON.stringify({state:'mongowin'}));
+        }
+      }                          
+    }
+  });
+}
+
 wsServer.on('request', function(request) {
   // Accept the connection
   var connection = request.accept('game', request.origin);
@@ -204,8 +234,12 @@ wsServer.on('request', function(request) {
       // If initializing the game
       if(messageObject['type'] == 'initialize') {    
         initializeBoard(state, self);    
-      } else if(messageObject['type'] = 'dead') {
+      } else if(messageObject['type'] == 'dead') {
         killBoard(state, self);
+      } else if(messageObject['type'] == 'mongowin') {
+        mongomanWon(state, self);
+      } else if(messageObject['type'] == 'ghostdead') {
+        ghostDead(state, self, messageObject);
       }
     } else if(message.type == 'binary') {
       // Binary message update player position

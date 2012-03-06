@@ -51,63 +51,103 @@ var createRemoteGhostPlayer = function(data) {
     	    this.status = 'chasing';		  
     		}
 
-        // console.log("----------------------------------------------------------------- checking for :: " + this.conId)
-  		  if(remotePlayerPositionUpdates[this.conId] != null && remotePlayerPositionUpdates[this.conId].nextPos != null) {
-  		    // Grab the next position
-  		    var nextPos = remotePlayerPositionUpdates[this.conId].nextPos;
-  		    // Reset position
-  		    remotePlayerPositionUpdates[this.conId] = {pos:nextPos, nextPos:null};
+        // Return to the house
+        if(this.status == 'eaten') {
+					toys.topview.setStaticSpeed(this, 4); // We're in a hurry now!
+					
+					if((this.x == maze.hw - this.hw) && (this.y == maze.hh - 38))
+						this.status = "goin";
+					else {
+						if((this.facing == toys.FACE_UP) || (this.facing == toys.FACE_DOWN)) {
+							if(maze.hw - this.hw > this.x) {
+							  toys.topview.controlKeys(this,{pressright: 1});
+						  } else if(maze.hw - this.hw < this.x) {
+						    toys.topview.controlKeys(this,{pressleft: 1});
+					    }
+						} else {
+							if(maze.hh - 38 > this.y) {
+							  toys.topview.controlKeys(this, {pressdown: 1});
+						  } else if(maze.hh - 38 < this.y) {
+						    toys.topview.controlKeys(this, {pressup: 1});
+					    }
+						}
+					}
+					
+					toys.topview.applyForces(this);
+          toys.topview.tileCollision(this, maze, "map", null, {tolerance:5, approximation:1});
+				} else if(this.status == 'goin') {
+					toys.topview.setStaticSpeed(this, 1);
+					toys.topview.controlKeys(this, {pressdown: 1});
+					toys.topview.applyForces(this);
+					toys.topview.tileCollision(this,maze, "map", null, {tolerance:0, approximation:1});
 
-  		    // Ensure we start at the same x, y coordinates
-  		    var obj = gbox.getObject('ghosts', this.id);
-  		    obj.x = nextPos.x;
-  		    obj.y = nextPos.y;
-  		    obj.accx = nextPos.accx;
-  		    obj.accy = nextPos.accy;
-  		    obj.xpushing = nextPos.xpushing;
-  		    obj.ypushing = nextPos.ypushing;
-  		    obj.facing = nextPos.facing;  		    
-  		    
-          // Apply forces and do tileCollision detection
-  				toys.topview.applyForces(this);
-  				toys.topview.tileCollision(this, maze, "map", null, {tolerance:0,approximation:1});
+					if(this.toucheddown) {
+						this.tileset = this.id;
+						toys.topview.setStaticSpeed(this, 2)
+						this.time = 75;
+						this.status = "chasing";
+					}
+        } else {
+          // console.log("----------------------------------------------------------------- checking for :: " + this.conId)
+    		  if(remotePlayerPositionUpdates[this.conId] != null && remotePlayerPositionUpdates[this.conId].nextPos != null) {
+    		    // Grab the next position
+    		    var nextPos = remotePlayerPositionUpdates[this.conId].nextPos;
+    		    // Reset position
+    		    remotePlayerPositionUpdates[this.conId] = {pos:nextPos, nextPos:null};
 
-					if(this.touchedup) {
-					  this.status = "chasing";
-					}						
-  		  }
+    		    // Ensure we start at the same x, y coordinates
+    		    var obj = gbox.getObject('ghosts', this.id);
+    		    obj.x = nextPos.x;
+    		    obj.y = nextPos.y;
+    		    obj.accx = nextPos.accx;
+    		    obj.accy = nextPos.accy;
+    		    obj.xpushing = nextPos.xpushing;
+    		    obj.ypushing = nextPos.ypushing;
+    		    obj.facing = nextPos.facing;  		    
 
-  			// The side warp. If capman reach one of the left or right side of the maze, is spawn on the other side,in the same direction
-  			if((this.x < 0) && (this.facing == toys.FACE_LEFT)) {
-  			  this.x = maze.w - this.w;
-  			} else if((this.x > (maze.w - this.w)) && (this.facing == toys.FACE_RIGHT)) {
-  			  this.x = 0;
-  			}
+            // Apply forces and do tileCollision detection
+    				toys.topview.applyForces(this);
+    				toys.topview.tileCollision(this, maze, "map", null, {tolerance:0,approximation:1});
 
-  			// setFrame sets the right frame checking the facing and the defined animations in "initialize"
-  			toys.topview.setFrame(this); 
-  			
-        // Grab the mongoman object
-        var mongoman = isMongoman ? gbox.getObject("player", "mongoman") : gbox.getObject("ghosts", "mongoman");
-        // Check if we have a collision
-        if(isMongoman && mongoman != null && gbox.collides(this, mongoman, 2)) {         
-          // If we are chasing him he is dead
-          if(this.status == "chasing") {
-            // Stop the game for a time
-            maingame.bullettimer = 10;
-            // kill mongoman
-            mongoman.kill();
-          } else if(this.status == "running") {
-                    // gbox.hitAudio("eatghost");
-                    // maingame.bullettimer=10;
-                    // toys.generate.sparks.popupText(capman,"sparks",null,{font:"small",jump:5,text:capman.scorecombo+"x100",keep:20}); // Text sparks are useful to "replace" sound effects, give quick hints o make a game really rad! ;)
-                    // maingame.hud.addValue("score","value",capman.scorecombo*100);
-                    // capman.scorecombo++;
-                    // this.tileset = "ghosteaten";
-                    // this.status = "eaten";
-          }
-        }        
-  		}
+  					if(this.touchedup) {
+  					  this.status = "chasing";
+  					}						
+    		  }
+
+    			// The side warp. If capman reach one of the left or right side of the maze, is spawn on the other side,in the same direction
+    			if((this.x < 0) && (this.facing == toys.FACE_LEFT)) {
+    			  this.x = maze.w - this.w;
+    			} else if((this.x > (maze.w - this.w)) && (this.facing == toys.FACE_RIGHT)) {
+    			  this.x = 0;
+    			}
+
+    			// setFrame sets the right frame checking the facing and the defined animations in "initialize"
+    			toys.topview.setFrame(this); 
+
+          // Grab the mongoman object
+          var mongoman = isMongoman ? gbox.getObject("player", "mongoman") : gbox.getObject("ghosts", "mongoman");
+          // Check if we have a collision
+          if(isMongoman && mongoman != null && gbox.collides(this, mongoman, 2)) {         
+            // If we are chasing him he is dead
+            if(this.status == "chasing") {
+              // console.log("================================= EATEN BY GHOST")
+              // Stop the game for a time
+              maingame.bullettimer = 10;
+              // kill mongoman
+              mongoman.kill();
+            } else if(this.status == "running") {
+              // console.log("================================= EATING RUNNING GHOST")
+              // Fire off I'm dead message
+        	    client.dispatchCommand({type:'ghostdead', id:this.conId});
+              // gbox.hitAudio("eatghost");
+  						maingame.bullettimer = 10;
+  						toys.generate.sparks.popupText(mongoman,"sparks",null,{font:"small",jump:5,text:'',keep:20});
+  						this.tileset = "ghosteaten";
+  						this.status = "eaten";
+            }
+          }        
+    		}          
+      }
   	},
 
   	makeeatable:function() {
@@ -120,7 +160,13 @@ var createRemoteGhostPlayer = function(data) {
   	},
 
   	// And now, a custom method. This one will kill the player and will be called by ghosts, when colliding with capman.
-  	kill:function() {}
+  	kill:function() {
+  	  //gbox.hitAudio("die");
+  	  // Set status to eaten
+  	  this.status = 'eaten';
+  	  // Change tileset
+			this.tileset = "ghosteaten";  	    	  
+  	}
   };
 }
 
@@ -162,26 +208,71 @@ var createRemoteMongoManPlayer = function(data) {
   		this.counter = (this.counter+1) % 10;
   		 // If capman is still alive and the game is not "hold" (level changing fadein/fadeouts etc.) and the "bullet timer" is not stopping the game.
   		if(!maingame.gameIsHold() && !maingame.bullettimer) {	
-        // console.log("----------------------------------------------------------------- checking for :: " + this.conId)
   		  if(remotePlayerPositionUpdates[this.conId] != null && remotePlayerPositionUpdates[this.conId].nextPos != null) {  		    
+          //          console.log("================================================== POS")
+          //          // Old data
+          // var olddata = help.createModel(this,["x","y","accx","accy","xpushing","ypushing","facing"]);
+
   		    // Grab the next position
   		    var nextPos = remotePlayerPositionUpdates[this.conId].nextPos;
+  		    console.log("----------------------------------------------------------")
+          console.log(nextPos)
   		    // Reset position
   		    remotePlayerPositionUpdates[this.conId] = {pos:nextPos, nextPos:null};
-
+  		    
   		    // Ensure we start at the same x, y coordinates
   		    var obj = gbox.getObject('ghosts', "mongoman");
-  		    obj.x = nextPos.x;
-  		    obj.y = nextPos.y;
-  		    obj.accx = nextPos.accx;
-  		    obj.accy = nextPos.accy;
-  		    obj.xpushing = nextPos.xpushing;
-  		    obj.ypushing = nextPos.ypushing;
-  		    obj.facing = nextPos.facing;  		    
   		    
-          // Apply forces and do tileCollision detection
-  				toys.topview.applyForces(this);
-  				toys.topview.tileCollision(this, maze, "map", null, {tolerance:0,approximation:1});
+  		    // Ensure we change only if there was one
+          // if(obj.x != nextPos.x || obj.y != nextPos.y) {
+    		    obj.x = nextPos.x;
+    		    obj.y = nextPos.y;
+    		    obj.accx = nextPos.accx;
+    		    obj.accy = nextPos.accy;
+    		    obj.xpushing = nextPos.xpushing;
+    		    obj.ypushing = nextPos.ypushing;
+    		    obj.facing = nextPos.facing;  		    
+
+            // Apply forces and do tileCollision detection
+    				toys.topview.applyForces(this);
+    				toys.topview.tileCollision(this, maze, "map", null, {tolerance: 0, approximation: 1});
+
+            //            // If we have a collision
+            //            if(this.touchedup || this.toucheddown || this.touchedleft || this.touchedright) {         
+            //              help.copyModel(this, olddata); 
+            //              toys.topview.applyForces(this); 
+            //              toys.topview.tileCollision(this, maze, "map", null, {tolerance:0,approximation:1});
+            // }                      
+          // }          
+  		  } else {
+          //          console.log("================================================== NO POS")
+          //          // Old data
+          //          var olddata = help.createModel(this,["x","y","accx","accy","xpushing","ypushing","facing"]);
+          //          
+          //          // Ensure we keep moving
+          //          if(this.ypushing == 3) {
+          //            this.y = this.y + this.staticspeed;       
+          //          } else if(this.ypushing == 4) {           
+          //            this.y = this.y - this.staticspeed;       
+          //          } else if(this.xpushing == 1) {           
+          //            this.x = this.x - this.staticspeed;       
+          //          } else if(this.xpushing == 2) {           
+          //            this.x = this.x + this.staticspeed;       
+          //          }
+          //          
+          //          // Handle collisions with the map, accuracy and tolerance controls how precise the collision detection is     
+          //          toys.topview.tileCollision(this, maze, "map", null, {tolerance: 0, approximation: 1});
+          // 
+          //          // If we have a collision
+          //          if(this.touchedup || this.toucheddown || this.touchedleft || this.touchedright) {         
+          //            help.copyModel(this, olddata); 
+          //            toys.topview.applyForces(this); 
+          //            toys.topview.tileCollision(this, maze, "map", null, {tolerance:0,approximation:1});
+          // }
+          //                    
+          // console.log(this);
+  		    // Apply current forces to the object
+          // toys.topview.applyForces(this);
   		  }
 
   			// The side warp. If capman reach one of the left or right side of the maze, is spawn on the other side,in the same direction
@@ -195,27 +286,25 @@ var createRemoteMongoManPlayer = function(data) {
   			toys.topview.setFrame(this); 
   			
         // Grab the current tile in the map object
-        var inmouth = help.getTileInMap(this.x+this.hw,this.y+this.hh, maze, 0); // I'll explain this the next line.
+        var inmouth = help.getTileInMap(this.x + this.hw, this.y + this.hh, maze, 0);
   			
         // Handle pills
         if(inmouth>7) {
           if(inmouth == 9) {
             if(sound) gbox.hitAudio("powerpill");
-            this.scorecombo = 1;         
             if(gbox.getObject("ghosts","ghost1")) gbox.getObject("ghosts","ghost1").makeeatable();
             if(gbox.getObject("ghosts","ghost2")) gbox.getObject("ghosts","ghost2").makeeatable();
             if(gbox.getObject("ghosts","ghost3")) gbox.getObject("ghosts","ghost3").makeeatable();
             if(gbox.getObject("ghosts","ghost4")) gbox.getObject("ghosts","ghost4").makeeatable();
             if(gbox.getObject("player", "playerghost")) gbox.getObject("player","playerghost").makeeatable();
           } else {
-            if(sound) gbox.hitAudio("eat"); // If is a classic pill, play the classic "gabogabo" sound!         
+            if(sound) gbox.hitAudio("eat");
           }
 
-          var mouthx=help.xPixelToTileX(maze,this.x+this.hw); // Let's get the pill coordinate in the maze...
-          var mouthy=help.yPixelToTileY(maze,this.y+this.hh);
-          help.setTileInMap(gbox.getCanvasContext("mazecanvas"),maze,mouthx,mouthy,null); // ... and set a null tile over that.
-          // maingame.hud.addValue("score","value",10); // Player earns 10 points. "hud" items also stores their values and can be used to store the real score.
-          maingame.pillscount--; // Let's decrease the number of pills into the maze.  			
+          var mouthx = help.xPixelToTileX(maze,this.x + this.hw);
+          var mouthy = help.yPixelToTileY(maze,this.y + this.hh);
+          help.setTileInMap(gbox.getCanvasContext("mazecanvas"), maze, mouthx, mouthy, null);
+          maingame.pillscount--;
         }
   		}
   	},

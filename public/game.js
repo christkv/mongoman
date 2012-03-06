@@ -5,6 +5,7 @@ var client = null;
 var currentGhosts = {};
 var newObjects = [];
 var remotePlayerPositionUpdates = {};
+var remotePlayersInformationById = {};
 
 var sound = false;
 var firstStart = true;
@@ -76,7 +77,7 @@ var go = function() {
   
   // Set method called each time we change the level
   maingame.changeLevel = function(level) {    
-    console.log("--------------------------------------- changeLevel :: " + level)
+    // console.log("--------------------------------------- changeLevel :: " + level)
     // Create a maze object based on the tilemap, mapping function
     // and the function that determines if a tile is solid or not
     maze = help.finalizeTilemap({
@@ -139,7 +140,6 @@ var go = function() {
     // When the web socket connects
     //
     var onMessageCallback = function(message) {
-      console.log("-----------------------------------")
       // JSON message
       if(message['state'] == 'initialize') {
         isMongoman = message['isMongoman'];
@@ -160,6 +160,21 @@ var go = function() {
           // Kill the character
           mongoman.kill();          
         }
+      } else if(message['state'] == 'ghostdead') {
+        // Check if it's a remote ghost and if it is kill it
+        if(currentGhosts[message['id']] != null) {
+          currentGhosts[message['id']].kill();
+          return;
+        }
+        
+        // Not in the ghosts list, then it's us
+        var playerGhost = gbox.getObject("player", "playerghost");
+        if(playerGhost) {
+          playerGhost.kill();
+        }
+      } else if(message['state'] == "mongowin") {
+  	 	  // Go to new level as mongoman won
+  			maingame.gotoLevel(maingame.level + 1);
       } else if(message['b'] != null) {
         // Check if we have a ghost for this user and add one if there is none
         if(currentGhosts[message.id] == null) {
@@ -167,13 +182,16 @@ var go = function() {
         }      
         // Add to list of character updates
         boardUpdateObjects.push(message);
-      }   
+      } else {
+        console.log(message);
+      }
     }
 
     // Initialize all state
     currentGhosts = {};
     newObjects = [];
     remotePlayerPositionUpdates = {};
+    remotePlayersInformationById = {};
     isMongoman = false;
     updateObject = null;
     boardUpdateObjects = [];        
@@ -192,6 +210,14 @@ var go = function() {
 	}
   
   maingame.gameEvents = function() {
+    // If no more pills let's start a new level
+	 	if(maingame.pillscount == 0) {
+	 	  // Fire ended game message
+	 	  client.dispatchCommand()
+	 	  // Go to new level
+			maingame.gotoLevel(maingame.level + 1);
+    }
+    
     // If we are counting down the time
     if(this.bullettimer > 0) this.bullettimer--;
     // If the user changed course send an update to the server
@@ -208,30 +234,25 @@ var go = function() {
     while(newObjects.length > 0) {
       // Remove the ghost
       var object = newObjects.pop();
-      // console.log(object)
       // Check if it's a ghost or a pacman
-      if(object.id > 0 && object.role == 'g' && object.pos.x != 0 && object.pos.y != 0) {
-        console.log("=============================================== ADD GHOST")
-        // Add a new ghost
+      if(currentGhosts[object.id] == null && object.id > 0 && object.role == 'g' && object.pos.x != 0 && object.pos.y != 0) {
+        // console.log("=============================================== ADD GHOST")
+        // Create a new ghost id
         var id = Object.keys(currentGhosts).length + 1;
-
+        // Add remote ghost object
         var remotePlayer = createRemoteGhostPlayer({conId:object.id, id:id, x: object.pos.x, y: object.pos.y, tileset:"ghost"+id});
         remotePlayerPositionUpdates[object.id] = {pos:null, nextPos:object.pos};
-        gbox.addObject(remotePlayer);
-        
+        gbox.addObject(remotePlayer);        
         // Update the ghost
-        currentGhosts[object.id] = object;
-      } else if(object.id > 0 && object.role == 'm' && object.pos.x != 0 && object.pos.y != 0) {
-        console.log("=============================================== ADD MONGOMAN")
-        // Add a new ghost
-        var id = Object.keys(currentGhosts).length + 1;
-        
+        currentGhosts[object.id] = remotePlayer;
+      } else if(currentGhosts[object.id] == null && object.id > 0 && object.role == 'm' && object.pos.x != 0 && object.pos.y != 0) {
+        // console.log("=============================================== ADD MONGOMAN")
+        // Add remote mongoman
         var remotePlayer = createRemoteMongoManPlayer({conId:object.id, x: object.pos.x, y: object.pos.y});
         remotePlayerPositionUpdates[object.id] = {pos:null, nextPos:object.pos};
         gbox.addObject(remotePlayer);
-
         // Update the ghost
-        currentGhosts[object.id] = object;
+        currentGhosts[object.id] = remotePlayer;
       }
     }
     
