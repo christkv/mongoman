@@ -38,6 +38,24 @@ var createPlayerGhost = function() {
   		this.counter = (this.counter+1) % 10;				
   		// If capman is still alive and the game is not "hold" (level changing fadein/fadeouts etc.) and the "bullet timer" is not stopping the game.
   		if(!maingame.gameIsHold() && !maingame.bullettimer) {		
+  		  // Check the status of the mongoman and make it viewable if it's close
+  		  var mongoman = gbox.getObject("ghosts", "mongoman");
+  		  if(mongoman) {
+  		    var leftBorder = this.x - (this.colw * 2);
+  		    var rightBorder = this.x + (this.colw * 2);
+  		    var topBorder = this.y - (this.colh* 2);
+  		    var bottomBorder = this.y + (this.colh* 2);
+  		    
+          if(mongoman.x >= leftBorder &&
+            mongoman.x <= rightBorder &&
+            mongoman.y >= topBorder &&
+            mongoman.y <= bottomBorder) {
+              mongoman.render = true;
+  		    } else {
+  		      mongoman.render = false;
+  		    }
+  		  }
+  		  
     		// The nuber of ticks the ghost i in danger
     		if(this.status == 'running' && this.time > 0) {
     		  this.time--;

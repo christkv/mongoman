@@ -88,7 +88,6 @@ var createRemoteGhostPlayer = function(data) {
 						this.status = "chasing";
 					}
         } else {
-          // console.log("----------------------------------------------------------------- checking for :: " + this.conId)
     		  if(remotePlayerPositionUpdates[this.conId] != null && remotePlayerPositionUpdates[this.conId].nextPos != null) {
     		    // Grab the next position
     		    var nextPos = remotePlayerPositionUpdates[this.conId].nextPos;
@@ -130,13 +129,11 @@ var createRemoteGhostPlayer = function(data) {
           if(isMongoman && mongoman != null && gbox.collides(this, mongoman, 2)) {         
             // If we are chasing him he is dead
             if(this.status == "chasing") {
-              // console.log("================================= EATEN BY GHOST")
               // Stop the game for a time
               maingame.bullettimer = 10;
               // kill mongoman
               mongoman.kill();
             } else if(this.status == "running") {
-              // console.log("================================= EATING RUNNING GHOST")
               // Fire off I'm dead message
         	    client.dispatchCommand({type:'ghostdead', id:this.conId});
               // gbox.hitAudio("eatghost");
@@ -177,6 +174,7 @@ var createRemoteMongoManPlayer = function(data) {
   	group:"ghosts",
   	tileset:"mongoman",
   	killed:false,
+  	render:false,
 
   	initialize: function() {
   		toys.topview.initialize(this,{
@@ -207,64 +205,45 @@ var createRemoteMongoManPlayer = function(data) {
   	  // Ensure we are showing the current correct frame out of 10 possible
   		this.counter = (this.counter+1) % 10;
   		 // If capman is still alive and the game is not "hold" (level changing fadein/fadeouts etc.) and the "bullet timer" is not stopping the game.
-  		if(!maingame.gameIsHold() && !maingame.bullettimer) {	
-  		  if(remotePlayerPositionUpdates[this.conId] != null && remotePlayerPositionUpdates[this.conId].nextPos != null) {  		    
-  		    // Grab the next position
-  		    var nextPos = remotePlayerPositionUpdates[this.conId].nextPos;
-  		    // Reset position
-  		    remotePlayerPositionUpdates[this.conId] = {pos:nextPos, nextPos:null};
-  		    
-  		    // Ensure we start at the same x, y coordinates
-  		    var obj = gbox.getObject('ghosts', "mongoman");  		    
-  		    obj.x = nextPos.x;
-  		    obj.y = nextPos.y;
-  		    obj.accx = nextPos.accx;
-  		    obj.accy = nextPos.accy;
-  		    obj.xpushing = nextPos.xpushing;
-  		    obj.ypushing = nextPos.ypushing;
-  		    obj.facing = nextPos.facing;  		    
-
+  		if(!maingame.gameIsHold() && !maingame.bullettimer) {	  		  
+  		  
+        if(remotePlayerPositionUpdates[this.conId] != null && remotePlayerPositionUpdates[this.conId].nextPos != null) {         
+          // Grab the next position
+          var nextPos = remotePlayerPositionUpdates[this.conId].nextPos;
+          // Reset position
+          remotePlayerPositionUpdates[this.conId] = {pos:nextPos, nextPos:null};
+          
+          // Ensure we start at the same x, y coordinates
+          var obj = gbox.getObject('ghosts', "mongoman");          
+          obj.x = nextPos.x;
+          obj.y = nextPos.y;
+          obj.accx = nextPos.accx;
+          obj.accy = nextPos.accy;
+          obj.xpushing = nextPos.xpushing;
+          obj.ypushing = nextPos.ypushing;
+          obj.facing = nextPos.facing;         
+        
           // Apply forces and do tileCollision detection
-  				toys.topview.applyForces(this);
-  				toys.topview.tileCollision(this, maze, "map", null, {tolerance: 0, approximation: 1});
-  		  }
-
-  			// The side warp. If capman reach one of the left or right side of the maze, is spawn on the other side,in the same direction
-  			if((this.x < 0) && (this.facing == toys.FACE_LEFT)) {
-  			  this.x = maze.w - this.w;
-  			} else if((this.x > (maze.w - this.w)) && (this.facing == toys.FACE_RIGHT)) {
-  			  this.x = 0;
-  			}
-
-  			// setFrame sets the right frame checking the facing and the defined animations in "initialize"
-  			toys.topview.setFrame(this); 
-  			
-        // Grab the current tile in the map object
-        var inmouth = help.getTileInMap(this.x + this.hw, this.y + this.hh, maze, 0);
-  			
-        // Handle pills
-        if(inmouth>7) {
-          if(inmouth == 9) {
-            if(sound) gbox.hitAudio("powerpill");
-            if(gbox.getObject("ghosts","ghost1")) gbox.getObject("ghosts","ghost1").makeeatable();
-            if(gbox.getObject("ghosts","ghost2")) gbox.getObject("ghosts","ghost2").makeeatable();
-            if(gbox.getObject("ghosts","ghost3")) gbox.getObject("ghosts","ghost3").makeeatable();
-            if(gbox.getObject("ghosts","ghost4")) gbox.getObject("ghosts","ghost4").makeeatable();
-            if(gbox.getObject("player", "playerghost")) gbox.getObject("player","playerghost").makeeatable();
-          } else {
-            if(sound) gbox.hitAudio("eat");
-          }
-
-          var mouthx = help.xPixelToTileX(maze,this.x + this.hw);
-          var mouthy = help.yPixelToTileY(maze,this.y + this.hh);
-          help.setTileInMap(gbox.getCanvasContext("mazecanvas"), maze, mouthx, mouthy, null);
-          maingame.pillscount--;
+          toys.topview.applyForces(this);
+          toys.topview.tileCollision(this, maze, "map", null, {tolerance: 0, approximation: 1});
         }
+        
+        // The side warp. If capman reach one of the left or right side of the maze, is spawn on the other side,in the same direction
+        if((this.x < 0) && (this.facing == toys.FACE_LEFT)) {
+          this.x = maze.w - this.w;
+        } else if((this.x > (maze.w - this.w)) && (this.facing == toys.FACE_RIGHT)) {
+          this.x = 0;
+        }
+        
+        // setFrame sets the right frame checking the facing and the defined animations in "initialize"
+        toys.topview.setFrame(this); 
   		}
   	},
   	
   	blit:function() {
-      gbox.blitTile(gbox.getBufferContext(),{tileset:this.tileset,tile:this.frame,dx:this.x,dy:this.y,fliph:this.fliph,flipv:this.flipv,camera:this.camera,alpha:1});
+  	  if(this.render) {
+        gbox.blitTile(gbox.getBufferContext(),{tileset:this.tileset,tile:this.frame,dx:this.x,dy:this.y,fliph:this.fliph,flipv:this.flipv,camera:this.camera,alpha:1});  	    
+  	  }
   	},
 
   	// And now, a custom method. This one will kill the player and will be called by ghosts, when colliding with capman.
