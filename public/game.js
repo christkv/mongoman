@@ -6,9 +6,7 @@ var currentGhosts = {};
 var newObjects = [];
 var remotePlayerPositionUpdates = {};
 var remotePlayersInformationById = {};
-
 var sound = false;
-var firstStart = true;
 
 // User states
 var isMongoman = false;
@@ -160,16 +158,9 @@ var go = function() {
     var onMessageCallback = function(message) {
       // JSON message
       if(message['state'] == 'initialize') {
-        firstStart = true;
         isMongoman = message['isMongoman'];
         // Let's add the object that will draw the maze
         gbox.addObject(drawMaze);
-        // // Let's add the player
-        // if(isMongoman) {
-        //   gbox.addObject(createPlayerMongoman());
-        // } else {
-        //   gbox.addObject(createPlayerGhost());
-        // }    
       } else if(message['state'] == 'dead') {
         // Fetch the active mongoman
         var mongoman = isMongoman ? gbox.getObject("player", "mongoman") : gbox.getObject("ghosts", "mongoman");
@@ -178,7 +169,20 @@ var go = function() {
           maingame.bullettimer = 10;
           // Kill the character
           mongoman.kill();          
-        }        
+        }   
+        
+        // Destroy groups
+        gbox.clearGroup("ghosts");
+        gbox.clearGroup("player");
+        gbox.purgeGarbage();        
+        // Initialize all state
+        currentGhosts = {};
+        newObjects = [];
+        remotePlayerPositionUpdates = {};
+        remotePlayersInformationById = {};
+        isMongoman = false;
+        updateObject = null;
+        boardUpdateObjects = []; 
       } else if(message['state'] == 'ghostdead') {
         // Check if it's a remote ghost and if it is kill it
         if(currentGhosts[message['id']] != null) {

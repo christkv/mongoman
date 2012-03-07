@@ -114,12 +114,13 @@ var wsServer = new WebSocketServer({
 var killBoard = function(_state, connection) {
   console.log("============================================ KILL BOARD")
   _state.boardCollection.findAndModify({'players':connection.connectionId}, [], {
-    $set: {players: 200}}, {new:true, upsert:false}, function(err, board) {      
+    $set: {number_of_players: 100}}, {new:true, upsert:false}, function(err, board) {      
       // Message all players that we are dead
       if(board != null) {
         for(var i = 0; i < board.players.length; i++) {
           // Send we are dead as well as intialize
-          if(board.players[i] != connection.connectionId && _state.connections[board.players[i]] != null) _state.connections[board.players[i]].sendUTF(JSON.stringify({state:'dead'}));
+          // if(board.players[i] != connection.connectionId && _state.connections[board.players[i]] != null) _state.connections[board.players[i]].sendUTF(JSON.stringify({state:'dead'}));
+          _state.connections[board.players[i]].sendUTF(JSON.stringify({state:'dead'}));
         }
       }      
     });
@@ -195,7 +196,7 @@ var mongomanWon = function(_state, connection) {
   console.log("============================================ MONGOMAN WON")
   // Set the board as dead
   _state.boardCollection.findAndModify({'players':connection.connectionId}, [], {
-    $set: {number_of_players: 200}}, {new:true, upsert:false}, function(err, board) {
+    $set: {number_of_players: 100}}, {new:true, upsert:false}, function(err, board) {
     // Send the ghost is dead to all other players on the board
     for(var i = 0; i < board.players.length; i++) {
       _state.connections[board.players[i]].sendUTF(JSON.stringify({state:'mongowin'}));
