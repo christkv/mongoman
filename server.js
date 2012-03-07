@@ -114,10 +114,11 @@ var wsServer = new WebSocketServer({
 var killBoard = function(_state, connection) {
   console.log("============================================ KILL BOARD")
   _state.boardCollection.findAndModify({'players':connection.connectionId}, [], {
-    $set: {number_of_players: 200}}, {new:true, upsert:false}, function(err, board) {      
+    $set: {players: 200}}, {new:true, upsert:false}, function(err, board) {      
       // Message all players that we are dead
       if(board != null) {
         for(var i = 0; i < board.players.length; i++) {
+          // Send we are dead as well as intialize
           if(board.players[i] != connection.connectionId && _state.connections[board.players[i]] != null) _state.connections[board.players[i]].sendUTF(JSON.stringify({state:'dead'}));
         }
       }      
@@ -126,6 +127,7 @@ var killBoard = function(_state, connection) {
 
 // Initialize a board
 var initializeBoard = function(_state, connection) {
+  console.log("============================================ INITIALIZE BOARD")
   // Locate any boards with open spaces and add ourselves to it
   // using findAndModify to ensure we are the only one changing the board
   _state.boardCollection.findAndModify({number_of_players: {$lt:5}}, [], {
@@ -191,17 +193,14 @@ var ghostDead = function(_state, connection, message) {
 
 var mongomanWon = function(_state, connection) {
   console.log("============================================ MONGOMAN WON")
-  // Find the board the game was done on
-  state.boardCollection.findOne({'players': connection.connectionId}, function(err, board) {
-    if(board) {
-      // Send the ghost is dead to all other players on the board
-      for(var i = 0; i < board.players.length; i++) {
-        if(board.players[i] != connection.connectionId) {
-          if(_state.connections[board.players[i]] != null) _state.connections[board.players[i]].sendUTF(JSON.stringify({state:'mongowin'}));
-        }
-      }                          
-    }
-  });
+  // Set the board as dead
+  _state.boardCollection.findAndModify({'players':connection.connectionId}, [], {
+    $set: {number_of_players: 200}}, {new:true, upsert:false}, function(err, board) {
+    // Send the ghost is dead to all other players on the board
+    for(var i = 0; i < board.players.length; i++) {
+      _state.connections[board.players[i]].sendUTF(JSON.stringify({state:'mongowin'}));
+    }       
+  });      
 }
 
 wsServer.on('request', function(request) {
@@ -228,9 +227,10 @@ wsServer.on('request', function(request) {
     // console.dir(message)
     
     // Handle game status messages
-    if(message.type == 'utf8') {
+    if(message.type == 'utf8') {      
       // Decode the json message and take the appropriate action
       var messageObject = JSON.parse(message.utf8Data);
+      console.dir(messageObject)
       // If initializing the game
       if(messageObject['type'] == 'initialize') {    
         initializeBoard(state, self);    

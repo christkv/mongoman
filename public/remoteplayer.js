@@ -209,70 +209,24 @@ var createRemoteMongoManPlayer = function(data) {
   		 // If capman is still alive and the game is not "hold" (level changing fadein/fadeouts etc.) and the "bullet timer" is not stopping the game.
   		if(!maingame.gameIsHold() && !maingame.bullettimer) {	
   		  if(remotePlayerPositionUpdates[this.conId] != null && remotePlayerPositionUpdates[this.conId].nextPos != null) {  		    
-          //          console.log("================================================== POS")
-          //          // Old data
-          // var olddata = help.createModel(this,["x","y","accx","accy","xpushing","ypushing","facing"]);
-
   		    // Grab the next position
   		    var nextPos = remotePlayerPositionUpdates[this.conId].nextPos;
-  		    console.log("----------------------------------------------------------")
-          console.log(nextPos)
   		    // Reset position
   		    remotePlayerPositionUpdates[this.conId] = {pos:nextPos, nextPos:null};
   		    
   		    // Ensure we start at the same x, y coordinates
-  		    var obj = gbox.getObject('ghosts', "mongoman");
-  		    
-  		    // Ensure we change only if there was one
-          // if(obj.x != nextPos.x || obj.y != nextPos.y) {
-    		    obj.x = nextPos.x;
-    		    obj.y = nextPos.y;
-    		    obj.accx = nextPos.accx;
-    		    obj.accy = nextPos.accy;
-    		    obj.xpushing = nextPos.xpushing;
-    		    obj.ypushing = nextPos.ypushing;
-    		    obj.facing = nextPos.facing;  		    
+  		    var obj = gbox.getObject('ghosts', "mongoman");  		    
+  		    obj.x = nextPos.x;
+  		    obj.y = nextPos.y;
+  		    obj.accx = nextPos.accx;
+  		    obj.accy = nextPos.accy;
+  		    obj.xpushing = nextPos.xpushing;
+  		    obj.ypushing = nextPos.ypushing;
+  		    obj.facing = nextPos.facing;  		    
 
-            // Apply forces and do tileCollision detection
-    				toys.topview.applyForces(this);
-    				toys.topview.tileCollision(this, maze, "map", null, {tolerance: 0, approximation: 1});
-
-            //            // If we have a collision
-            //            if(this.touchedup || this.toucheddown || this.touchedleft || this.touchedright) {         
-            //              help.copyModel(this, olddata); 
-            //              toys.topview.applyForces(this); 
-            //              toys.topview.tileCollision(this, maze, "map", null, {tolerance:0,approximation:1});
-            // }                      
-          // }          
-  		  } else {
-          //          console.log("================================================== NO POS")
-          //          // Old data
-          //          var olddata = help.createModel(this,["x","y","accx","accy","xpushing","ypushing","facing"]);
-          //          
-          //          // Ensure we keep moving
-          //          if(this.ypushing == 3) {
-          //            this.y = this.y + this.staticspeed;       
-          //          } else if(this.ypushing == 4) {           
-          //            this.y = this.y - this.staticspeed;       
-          //          } else if(this.xpushing == 1) {           
-          //            this.x = this.x - this.staticspeed;       
-          //          } else if(this.xpushing == 2) {           
-          //            this.x = this.x + this.staticspeed;       
-          //          }
-          //          
-          //          // Handle collisions with the map, accuracy and tolerance controls how precise the collision detection is     
-          //          toys.topview.tileCollision(this, maze, "map", null, {tolerance: 0, approximation: 1});
-          // 
-          //          // If we have a collision
-          //          if(this.touchedup || this.toucheddown || this.touchedleft || this.touchedright) {         
-          //            help.copyModel(this, olddata); 
-          //            toys.topview.applyForces(this); 
-          //            toys.topview.tileCollision(this, maze, "map", null, {tolerance:0,approximation:1});
-          // }
-          //                    
-          // console.log(this);
-  		    // Apply current forces to the object
-          // toys.topview.applyForces(this);
+          // Apply forces and do tileCollision detection
+  				toys.topview.applyForces(this);
+  				toys.topview.tileCollision(this, maze, "map", null, {tolerance: 0, approximation: 1});
   		  }
 
   			// The side warp. If capman reach one of the left or right side of the maze, is spawn on the other side,in the same direction

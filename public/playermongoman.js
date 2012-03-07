@@ -29,7 +29,7 @@ var createPlayerMongoman = function() {
   				movingleft:{speed:3,frames:[0,6,5,6] },
   				movingright:{speed:3,frames:[0,6,5,6] }
   			}
-  		});
+  		});  		
   	},
 		
   	first: function() { 

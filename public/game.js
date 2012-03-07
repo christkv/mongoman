@@ -76,8 +76,28 @@ var go = function() {
   maingame.bullettimer = 0;
   
   // Set method called each time we change the level
-  maingame.changeLevel = function(level) {    
-    // console.log("--------------------------------------- changeLevel :: " + level)
+  maingame.changeLevel = function(level) {            
+    // Let's add the player
+    if(isMongoman) {
+      gbox.addObject(createPlayerMongoman());
+    } else {
+      gbox.addObject(createPlayerGhost());
+    }    
+
+  	// For all ghosts set's the to chasing status
+  	var keys = Object.keys(currentGhosts);
+  	for(var i = 0; i < keys.length; i++) {
+  	  currentGhosts[keys[i]].status = 'chasing';
+  	  currentGhosts[keys[i]].tileset = currentGhosts[keys[i]].id;
+  	}
+
+  	// Set player ghost to chasing if it exists
+  	var playerGhost = gbox.getObject("player", "playerghost");
+  	if(playerGhost) {
+  	  playerGhost.status = 'chasing';
+  	  playerGhost.tileset = playerGhost.id;
+  	}
+
     // Create a maze object based on the tilemap, mapping function
     // and the function that determines if a tile is solid or not
     maze = help.finalizeTilemap({
@@ -97,12 +117,12 @@ var go = function() {
      for (var x=0;x<maze.map[y].length;x++) // ... and all the colums
        if(maze.map[y][x] > 7) this.pillscount++; // If the row/column contains a "pill" tile (8 for plain pill, 9 for powerpill), let's
     
+    debugpillcount = this.pillscount;
+    
     this.newLife();
   }
   
   maingame.gameIsOver = function() {
-    // Kill the websocket connection
-    client.close();
     // Reset game
     this.changeLevel();
     // Return game over
@@ -110,22 +130,20 @@ var go = function() {
   }
   
   maingame.newLife = function() {
-  	gbox.trashGroup("sparks");
-  	gbox.trashGroup("ghosts");
-  	gbox.purgeGarbage();
-  	maingame.bullettimer=0
-  	
+  	maingame.bullettimer=0  	  	
   	// Spawn the main character
   	if(isMongoman) {
-  		toys.topview.spawn(gbox.getObject("player","mongoman"),{x:maze.hw-6,y:maze.hh+50,accx:0,accy:0,xpushing:false,ypushing:false});
+  	  var object = gbox.getObject("player","mongoman");
+  		toys.topview.spawn(object,{x:maze.hw-6,y:maze.hh+50,accx:0,accy:0,xpushing:false,ypushing:false});
   	} else {
-  		toys.topview.spawn(gbox.getObject("player","playerghost"),{x:maze.hw-8,y:maze.hh-20,accx:0,accy:0,xpushing:false,ypushing:false});
+  	  var object = gbox.getObject("player","playerghost");
+  		toys.topview.spawn(object,{x:maze.hw-8,y:maze.hh-20,accx:0,accy:0,xpushing:false,ypushing:false});
   	}  	
   }
   
   // This method is triggered once pr game
   maingame.initializeGame = function() {        
-    // console.log("--------------------------------------------------------- initializeGame");
+    console.log("--------------------------------------------------------- initializeGame");
     // Set up the HUD used to signal all the different values visable to the user
     //     maingame.hud.setWidget("label", {widget:"label", font:"small", value:"1UP", dx:240, dy:10, clear:true});
     // maingame.hud.setWidget("score",{widget:"label",font:"small",value:0,dx:240,dy:25,clear:true});
@@ -142,15 +160,16 @@ var go = function() {
     var onMessageCallback = function(message) {
       // JSON message
       if(message['state'] == 'initialize') {
+        firstStart = true;
         isMongoman = message['isMongoman'];
         // Let's add the object that will draw the maze
         gbox.addObject(drawMaze);
-        // Let's add the player
-        if(isMongoman) {
-          gbox.addObject(createPlayerMongoman());
-        } else {
-          gbox.addObject(createPlayerGhost());
-        }    
+        // // Let's add the player
+        // if(isMongoman) {
+        //   gbox.addObject(createPlayerMongoman());
+        // } else {
+        //   gbox.addObject(createPlayerGhost());
+        // }    
       } else if(message['state'] == 'dead') {
         // Fetch the active mongoman
         var mongoman = isMongoman ? gbox.getObject("player", "mongoman") : gbox.getObject("ghosts", "mongoman");
@@ -159,7 +178,7 @@ var go = function() {
           maingame.bullettimer = 10;
           // Kill the character
           mongoman.kill();          
-        }
+        }        
       } else if(message['state'] == 'ghostdead') {
         // Check if it's a remote ghost and if it is kill it
         if(currentGhosts[message['id']] != null) {
@@ -173,8 +192,29 @@ var go = function() {
           playerGhost.kill();
         }
       } else if(message['state'] == "mongowin") {
-  	 	  // Go to new level as mongoman won
-  			maingame.gotoLevel(maingame.level + 1);
+    		// Destroy groups
+    		gbox.clearGroup("ghosts");
+    		gbox.clearGroup("player");
+      	gbox.purgeGarbage();    		
+        // Initialize all state
+        currentGhosts = {};
+        newObjects = [];
+        remotePlayerPositionUpdates = {};
+        remotePlayersInformationById = {};
+        isMongoman = false;
+        updateObject = null;
+        boardUpdateObjects = []; 
+        // Change level       
+        if(!isMongoman) maingame.gotoLevel(maingame.level+1);
+        // Close client
+        if(client) client.close();        
+        // Create client instance
+        client = new GameCommunication(document.URL, 'game', onMessageCallback);    
+        // Start the client
+        client.connect(function() {
+          // Dispatch a message asking to intialize the connection
+          client.dispatchCommand({type:'initialize'});    
+        });                  
       } else if(message['b'] != null) {
         // Check if we have a ghost for this user and add one if there is none
         if(currentGhosts[message.id] == null) {
@@ -196,6 +236,11 @@ var go = function() {
     updateObject = null;
     boardUpdateObjects = [];        
 
+    // If client is still connected close it
+    if(client) {
+      client.close();
+    }
+
     // Create client instance
     client = new GameCommunication(document.URL, 'game', onMessageCallback);    
     // Start the client
@@ -211,11 +256,12 @@ var go = function() {
   
   maingame.gameEvents = function() {
     // If no more pills let's start a new level
-	 	if(maingame.pillscount == 0) {
-	 	  // Fire ended game message
-	 	  client.dispatchCommand()
+    // if(maingame.pillscount == 0) {
+	 	if(maingame.pillscount < debugpillcount - 5) {
 	 	  // Go to new level
-			maingame.gotoLevel(maingame.level + 1);
+			maingame.gotoLevel(maingame.level + 1);			
+	 	  // Fire ended game message
+	 	  client.dispatchCommand({type:'mongowin'})
     }
     
     // If we are counting down the time
@@ -236,7 +282,6 @@ var go = function() {
       var object = newObjects.pop();
       // Check if it's a ghost or a pacman
       if(currentGhosts[object.id] == null && object.id > 0 && object.role == 'g' && object.pos.x != 0 && object.pos.y != 0) {
-        // console.log("=============================================== ADD GHOST")
         // Create a new ghost id
         var id = Object.keys(currentGhosts).length + 1;
         // Add remote ghost object
@@ -246,7 +291,6 @@ var go = function() {
         // Update the ghost
         currentGhosts[object.id] = remotePlayer;
       } else if(currentGhosts[object.id] == null && object.id > 0 && object.role == 'm' && object.pos.x != 0 && object.pos.y != 0) {
-        // console.log("=============================================== ADD MONGOMAN")
         // Add remote mongoman
         var remotePlayer = createRemoteMongoManPlayer({conId:object.id, x: object.pos.x, y: object.pos.y});
         remotePlayerPositionUpdates[object.id] = {pos:null, nextPos:object.pos};
