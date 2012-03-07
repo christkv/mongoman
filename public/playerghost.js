@@ -92,7 +92,6 @@ var createPlayerGhost = function() {
 					}
 					
 					toys.topview.applyForces(this);
-          toys.topview.tileCollision(this, maze, "map", null, {tolerance:5, approximation:1});
 				} else if(this.status == 'goin') {
 					toys.topview.setStaticSpeed(this, 1);
 					toys.topview.controlKeys(this, {pressdown: 1});

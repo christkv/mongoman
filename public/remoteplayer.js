@@ -59,7 +59,7 @@ var createRemoteGhostPlayer = function(data) {
 						this.status = "goin";
 					else {
 						if((this.facing == toys.FACE_UP) || (this.facing == toys.FACE_DOWN)) {
-							if(maze.hw - this.hw > this.x) {
+							if(maze.hw - this.hw >= this.x) {
 							  toys.topview.controlKeys(this,{pressright: 1});
 						  } else if(maze.hw - this.hw < this.x) {
 						    toys.topview.controlKeys(this,{pressleft: 1});
@@ -74,7 +74,6 @@ var createRemoteGhostPlayer = function(data) {
 					}
 					
 					toys.topview.applyForces(this);
-          toys.topview.tileCollision(this, maze, "map", null, {tolerance:5, approximation:1});
 				} else if(this.status == 'goin') {
 					toys.topview.setStaticSpeed(this, 1);
 					toys.topview.controlKeys(this, {pressdown: 1});
@@ -134,6 +133,7 @@ var createRemoteGhostPlayer = function(data) {
               // kill mongoman
               mongoman.kill();
             } else if(this.status == "running") {
+              if(sound) gbox.hitAudio("eatghost");
               // Fire off I'm dead message
         	    client.dispatchCommand({type:'ghostdead', id:this.conId});
               // gbox.hitAudio("eatghost");
@@ -237,6 +237,23 @@ var createRemoteMongoManPlayer = function(data) {
         
         // setFrame sets the right frame checking the facing and the defined animations in "initialize"
         toys.topview.setFrame(this); 
+        
+        // Grab the current tile in the map object
+        var inmouth = help.getTileInMap(this.x + this.hw, this.y + this.hh, maze, 0);
+        
+        // Handle pills
+        if(inmouth>7) {
+          if(inmouth == 9) {
+            if(sound) gbox.hitAudio("powerpill");
+            if(gbox.getObject("ghosts","ghost1")) gbox.getObject("ghosts","ghost1").makeeatable();
+            if(gbox.getObject("ghosts","ghost2")) gbox.getObject("ghosts","ghost2").makeeatable();
+            if(gbox.getObject("ghosts","ghost3")) gbox.getObject("ghosts","ghost3").makeeatable();
+            if(gbox.getObject("ghosts","ghost4")) gbox.getObject("ghosts","ghost4").makeeatable();
+            if(gbox.getObject("player", "playerghost")) gbox.getObject("player","playerghost").makeeatable();
+          } else {
+            if(sound) gbox.hitAudio("eat");
+          }
+        }
   		}
   	},
   	

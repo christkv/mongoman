@@ -6,7 +6,7 @@ var currentGhosts = {};
 var newObjects = [];
 var remotePlayerPositionUpdates = {};
 var remotePlayersInformationById = {};
-var sound = false;
+var sound = true;
 
 // User states
 var isMongoman = false;
@@ -141,7 +141,7 @@ var go = function() {
   
   // This method is triggered once pr game
   maingame.initializeGame = function() {        
-    console.log("--------------------------------------------------------- initializeGame");
+    // console.log("--------------------------------------------------------- initializeGame");
     // Set up the HUD used to signal all the different values visable to the user
     //     maingame.hud.setWidget("label", {widget:"label", font:"small", value:"1UP", dx:240, dy:10, clear:true});
     // maingame.hud.setWidget("score",{widget:"label",font:"small",value:0,dx:240,dy:25,clear:true});
@@ -184,6 +184,7 @@ var go = function() {
         updateObject = null;
         boardUpdateObjects = []; 
       } else if(message['state'] == 'ghostdead') {
+        if(sound) gbox.hitAudio("eatghost");
         // Check if it's a remote ghost and if it is kill it
         if(currentGhosts[message['id']] != null) {
           currentGhosts[message['id']].kill();
@@ -226,8 +227,6 @@ var go = function() {
         }      
         // Add to list of character updates
         boardUpdateObjects.push(message);
-      } else {
-        console.log(message);
       }
     }
 
@@ -260,8 +259,8 @@ var go = function() {
   
   maingame.gameEvents = function() {
     // If no more pills let's start a new level
-    // if(maingame.pillscount == 0) {
-	 	if(maingame.pillscount < debugpillcount - 5) {
+    if(maingame.pillscount == 0) {
+    // if(maingame.pillscount < debugpillcount - 5) {
 	 	  // Go to new level
 			maingame.gotoLevel(maingame.level + 1);			
 	 	  // Fire ended game message
@@ -316,8 +315,6 @@ var go = function() {
       // Process all the board updates
       for(var i = 0; i < reference.length; i++) {
         var update = reference[i];
-        // console.log(update)
-        
         // It's a remote player, update position
         if(remotePlayerPositionUpdates[update.id] != null) {
           // remotePlayerPositionUpdates[update.id].nextPos = update.pos;
