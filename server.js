@@ -75,6 +75,11 @@ if(cluster.isMaster) {
   // Setting up the db and tables
   async.series([
       function(callback) { db.open(function(err, db) {
+        if(err) {
+          console.dir(err);
+          throw err;
+        }
+        
         db.admin().authenticate(dbUser, dbPassword, callback);
       }); },
       function(callback) { db.dropCollection('game', function() { callback(null, null); }); },
@@ -111,7 +116,10 @@ if(cluster.isMaster) {
   // For each slave process let's start up a websocket server instance
   db.open(function(err, db) {
     db.admin().authenticate(dbUser, dbPassword, function(err, result) {
-      if(err) throw err;
+      if(err) {
+        console.dir(err);
+        throw err;
+      }
       if(!result) throw new Error("failed to authenticate with user = " + user);
       
       app.listen(port, function(err) {
