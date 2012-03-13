@@ -18,8 +18,8 @@ var boardUpdateObjects = [];
 // Load the  game box
 gbox.onLoad(function () {  
   help.akihabaraInit({ 
-     title: "Bombaman", 
-     splash: {footnotes: ["Music 'Only Heroes Win at Skee Ball' by Greenleo","Contact him: greenleo.bandcamp.com"] }
+     title: "Mongoman", 
+     // splash: {footnotes: ["Music 'Only Heroes Win at Skee Ball' by Greenleo","Contact him: greenleo.bandcamp.com"] }
   }); 
 
   // Load the logo, do at the start so it will be there first for the title screen

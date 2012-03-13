@@ -16,6 +16,7 @@ var express = require('express'),
 // Set up server for mongo
 var db = new Db('game', new Server('127.0.0.1', 27017));
 var numCPUs = require('os').cpus().length;
+var numCPUs = 1;
 var gameCollection = null;
 var boardCollection = null;
 
@@ -25,7 +26,11 @@ var state = {
   connections : {},
   // Collections
   gameCollection: null,
-  boardCollection: null
+  boardCollection: null,
+
+  // Connections by board id
+  connectionsByBoardId: {},
+  boardIdByConnections: {}
 }
 
 // Create a server instance
@@ -61,20 +66,6 @@ if(cluster.isMaster) {
       function(callback) { db.dropCollection('board', function() { callback(null, null); }); },
       function(callback) { db.createCollection('game', {capped:true, size:100000, safe:true}, callback); },    
       function(callback) { db.createCollection('board', {capped:true, size:100000, safe:true}, callback); },    
-      function(callback) {
-        // Prime the board with a max size doc (need this for capped collection)
-        db.collection('board').insert({
-            number_of_players: 100,
-            players: [222, 444, 555, 666, 777]
-          }, {safe:true}, callback);
-      }, 
-      function(callback) {
-        // Prime the current move table
-        db.collection('game').insert(
-          {id:11111111111, b:new ObjectID(), role:'m', state:'n', pos:{x:1000, y:1000, accx:1000, accy:10000, facing:0000, xpushing:1, ypushing:1}}
-        , {safe:true}, callback);
-      },  
-      function(callback) { db.collection('board').remove({}, callback); },        
       function(callback) { db.ensureIndex('board', {number_of_players:1}, callback); },    
       function(callback) { db.ensureIndex('game', {'id':1}, callback); },    
       function(callback) { db.ensureIndex('game', {'b':1}, callback); },          
@@ -154,20 +145,20 @@ if(cluster.isMaster) {
             }
           } else if(message.type == 'binary') {
             // Binary message update player position
-            state.gameCollection.update({'id': self.connectionId}, message.binaryData);
-            // Find the board and cache it
-            state.boardCollection.findOne({'players': self.connectionId}, function(err, board) {
-              // Let's grab the record
-              state.gameCollection.findOne({'b':board._id, 'id': self.connectionId}, {raw:true}, function(err, rawDoc) {
-                if(rawDoc) {
-                  // Send the data to all the connections expect the originating connection
-                  for(var i = 0; i < board.players.length; i++) {
-                    if(board.players[i] != self.connectionId) {
-                      if(state.connections[board.players[i]] != null) state.connections[board.players[i]].sendBytes(rawDoc);
-                    }
-                  }              
-                }            
-              });
+            state.gameCollection.update({id: self.connectionId}, message.binaryData);
+            // Let's grab the record
+            state.gameCollection.findOne({id: self.connectionId, state:'n'}, {raw:true}, function(err, rawDoc) {
+              if(rawDoc) {
+                // Retrieve the board by id from cache
+                var boardId = state.boardIdByConnections[self.connectionId];                
+                var board = state.connectionsByBoardId[boardId];                
+                // Send the data to all the connections expect the originating connection
+                for(var i = 0; i < board.length; i++) {
+                  if(board[i] != self.connectionId) {
+                    if(state.connections[board[i]] != null) state.connections[board[i]].sendBytes(rawDoc);
+                  }
+                }              
+              }            
             });
           }
         });  
@@ -180,9 +171,22 @@ if(cluster.isMaster) {
  * A game was finished, let's remove the board from play by setting the number of users over 100
  * as remove does not carry any meaning in capped collections
  **/
-var killBoard = function(_state, connection) {
+var killBoard = function(_state, connection) {  
   _state.boardCollection.findAndModify({'players':connection.connectionId}, [], {
     $set: {number_of_players: 100}}, {new:true, upsert:false}, function(err, board) {      
+      // Invalidate all the game records by setting them to dead
+      _state.gameCollection.update({b:board._id}, {$set: {state:'d'}});      
+      // Get the board id
+      var boardId = _state.boardIdByConnections[connection.connectionId];
+      // Get the connectionid list
+      var connectionIds = _state.connectionsByBoardId[boardId];
+      // Delete board to connection mapping
+      delete _state.connectionsByBoardId[boardId];
+      // Delete all mappings connections - board
+      for(var j = 0; j < connectionIds.length; j++) {
+        delete _state.boardIdByConnections[connectionIds[j]];
+      }
+      
       // Message all players that we are dead
       if(board != null) {
         for(var i = 0; i < board.players.length; i++) {
@@ -212,6 +216,10 @@ var initializeBoard = function(_state, connection) {
           number_of_players: 1,
           players: [connection.connectionId, 0, 0, 0, 0]
         }
+      // Ensure we cache the relationships between boards and connections
+      if(_state.connectionsByBoardId[newBoard._id.id] == null) _state.connectionsByBoardId[newBoard._id.id] = [];
+      _state.connectionsByBoardId[newBoard._id.id].push(connection.connectionId);
+      _state.boardIdByConnections[connection.connectionId] = newBoard._id.id;
       // Save the board to the db, don't care about safe at this point as we don't need it yet
       _state.boardCollection.insert(newBoard);
       // Update the player array
@@ -221,6 +229,10 @@ var initializeBoard = function(_state, connection) {
       // Signal the gamer we are mongoman
       connection.sendUTF(JSON.stringify({state:'initialize', isMongoman:true}));
     } else {
+      // Ensure we cache the relationships between boards and connections
+      if(_state.connectionsByBoardId[board._id.id] == null) _state.connectionsByBoardId[board._id.id] = [];
+      _state.connectionsByBoardId[board._id.id].push(connection.connectionId);
+      _state.boardIdByConnections[connection.connectionId] = board._id.id;
       // Prime the board game with the ghost
       _state.gameCollection.insert({id:connection.connectionId, b:board._id, role:'g', state:'n', pos:{x:0, y:0, accx:0, accy:0, facing:0, xpushing:0, ypushing:0}});
       // There is a board, we are a ghost, message the user that we are ready and also send the state of the board
