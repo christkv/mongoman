@@ -202,7 +202,7 @@ if(cluster.isMaster) {
  * A game was finished, let's remove the board from play by setting the number of users over 100
  * as remove does not carry any meaning in capped collections
  **/
-var killBoard = function(_state, connection) {  
+var killBoard = function(_state, connection, removeConnection) {  
   _state.boardCollection.findAndModify({'players':connection.connectionId}, [], {
     $set: {number_of_players: 100}}, {new:true, upsert:false}, function(err, board) {      
       // Invalidate all the game records by setting them to dead
@@ -224,8 +224,13 @@ var killBoard = function(_state, connection) {
           // Send we are dead as well as intialize
           _state.connections[board.players[i]].sendUTF(JSON.stringify({state:'dead'}));
         }
-      }      
-    });
+      }  
+      
+      // Check if we have a connection
+      if(removeConnection && _state.connections[connection.connectionId]) {
+        delete _state.connections[connection.connectionId];
+      }                
+  });
 }
 
 /**
@@ -284,10 +289,13 @@ var initializeBoard = function(_state, connection) {
  * Remove the connection from our connection cache
  **/
 var cleanUpConnection = function(_state, connection) {
-  // Check if we have a connection
-  if(_state.connections[connection.connectionId]) {
-    delete _state.connections[connection.connectionId];
-  }
+  _state.gameCollection.findOne({id:connection.connectionId, role:'m', state:'n'}, function(err, result) {
+    // Mongoman quit, signal game over to every ghost and clean up
+    if(result) {
+      // Kill the board
+      killBoard(_state, connection, true);      
+    }    
+  });  
 }
 
 /**

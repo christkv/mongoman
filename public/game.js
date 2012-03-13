@@ -176,7 +176,18 @@ var go = function() {
         remotePlayersInformationById = {};
         isMongoman = false;
         updateObject = null;
-        boardUpdateObjects = []; 
+        boardUpdateObjects = [];         
+        // Change level       
+        if(!isMongoman) maingame.gotoLevel(maingame.level+1);
+        // Close client
+        if(client) client.close();        
+        // Create client instance
+        client = new GameCommunication(document.URL, 'game', onMessageCallback);    
+        // Start the client
+        client.connect(function() {
+          // Dispatch a message asking to intialize the connection
+          client.dispatchCommand({type:'initialize'});    
+        });                          
       } else if(message['state'] == 'ghostdead') {
         if(sound) gbox.hitAudio("eatghost");
         // Check if it's a remote ghost and if it is kill it
