@@ -159,7 +159,27 @@ var createPlayerGhost = function() {
   	},	
 	
   	blit:function() {
+  	  // Render the ghost
       gbox.blitTile(gbox.getBufferContext(),{tileset:this.tileset,tile:this.frame,dx:this.x,dy:this.y,fliph:this.fliph,flipv:this.flipv,camera:this.camera,alpha:1});
+  	  // Fetch the render canvas
+      var drawingCanvas =  gbox.getCanvas("mazecanvas");
+  		// If we are a ghost only show the area around the ghost
+      if(gbox.getBufferContext()) {
+        // Initaliase a 2-dimensional drawing context
+        var context = gbox.getBufferContext();                
+        context.strokeStyle = "#000000";
+        context.fillStyle = "#000000";
+        context.beginPath();
+        context.moveTo(0, 0);
+        context.lineTo(drawingCanvas.width, 0);
+        context.lineTo(drawingCanvas.width, drawingCanvas.height);
+        context.lineTo(0, drawingCanvas.height);
+        context.arc(this.x, this.y, 50, 0, Math.PI*2, true);      
+        context.lineTo(0, drawingCanvas.height);
+        context.lineTo(0, 0);
+        context.closePath();
+        context.fill();
+      }            
   	},
 	
   	// And now, a custom method. This one will kill the player and will be called by ghosts, when colliding with capman.

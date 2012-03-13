@@ -64,7 +64,7 @@ gbox.onLoad(function () {
 
 // Start game function
 var go = function() {
-  gbox.setGroups(["background", "player", "ghosts", "sparks", "gamecycle"]);  
+  gbox.setGroups(["background", "ghosts", "player", "sparks", "gamecycle"]);  
   // Set up the main loop object
   maingame = gamecycle.createMaingame("gamecycle","gamecycle");
   maingame.bullettimer = 0;
@@ -351,10 +351,11 @@ var drawMaze = {
 	},
 	
 	blit:function() { 
+	  // Blit the background
+    var drawingCanvas =  gbox.getCanvas("mazecanvas");     	  
 	  // Clear the entire screen
 		gbox.blitFade(gbox.getBufferContext(),{alpha: 1}); 
-		gbox.blit(gbox.getBufferContext(), gbox.getCanvas("mazecanvas"),
-		  {dx: 0,dy: 0,dw: gbox.getCanvas("mazecanvas").width, dh:gbox.getCanvas("mazecanvas").height, sourcecamera:true});
+		gbox.blit(gbox.getBufferContext(), drawingCanvas, {dx: 0,dy: 0,dw: drawingCanvas.width, dh:drawingCanvas.height, sourcecamera:true});
 	}
 }
 

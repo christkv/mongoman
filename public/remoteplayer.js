@@ -253,14 +253,19 @@ var createRemoteMongoManPlayer = function(data) {
           } else {
             if(sound) gbox.hitAudio("eat");
           }
+          
+          var mouthx = help.xPixelToTileX(maze,this.x + this.hw);
+          var mouthy = help.yPixelToTileY(maze,this.y + this.hh);
+          help.setTileInMap(gbox.getCanvasContext("mazecanvas"), maze, mouthx, mouthy, null);
+          maingame.pillscount--;          
         }
   		}
   	},
   	
   	blit:function() {
-  	  if(this.render) {
-        gbox.blitTile(gbox.getBufferContext(),{tileset:this.tileset,tile:this.frame,dx:this.x,dy:this.y,fliph:this.fliph,flipv:this.flipv,camera:this.camera,alpha:1});  	    
-  	  }
+      // if(this.render) {
+        gbox.blitTile(gbox.getBufferContext(),{tileset:this.tileset,tile:this.frame,dx:this.x,dy:this.y,fliph:this.fliph,flipv:this.flipv,camera:this.camera,alpha:1});
+      // }
   	},
 
   	// And now, a custom method. This one will kill the player and will be called by ghosts, when colliding with capman.
