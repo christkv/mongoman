@@ -179,12 +179,15 @@ if(cluster.isMaster) {
                   // Retrieve the board by id from cache
                   var boardId = state.boardIdByConnections[self.connectionId];                
                   var board = state.connectionsByBoardId[boardId];                
-                  // Send the data to all the connections expect the originating connection
-                  for(var i = 0; i < board.length; i++) {
-                    if(board[i] != self.connectionId) {
-                      if(state.connections[board[i]] != null) state.connections[board[i]].sendBytes(rawDoc);
-                    }
-                  }              
+                  // If we have a board send the messages
+                  if(board) {
+                    // Send the data to all the connections expect the originating connection
+                    for(var i = 0; i < board.length; i++) {
+                      if(board[i] != self.connectionId) {
+                        if(state.connections[board[i]] != null) state.connections[board[i]].sendBytes(rawDoc);
+                      
+                    }                                  
+                  }
                 }            
               });
             }
