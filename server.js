@@ -185,7 +185,7 @@ if(cluster.isMaster) {
                     for(var i = 0; i < board.length; i++) {
                       if(board[i] != self.connectionId) {
                         if(state.connections[board[i]] != null) state.connections[board[i]].sendBytes(rawDoc);
-                      
+                      } 
                     }                                  
                   }
                 }            
