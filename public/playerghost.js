@@ -164,7 +164,7 @@ var createPlayerGhost = function() {
 	
   	// And now, a custom method. This one will kill the player and will be called by ghosts, when colliding with capman.
   	kill:function() {
-  	  //gbox.hitAudio("die");
+      if(sound)gbox.hitAudio("die");
   	  // Set status to eaten
   	  this.status = 'eaten';
   	  // Change tileset

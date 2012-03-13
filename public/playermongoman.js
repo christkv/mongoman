@@ -119,7 +119,6 @@ var createPlayerMongoman = function() {
   	    // Animate death
     		this.killed = true; 
     		if(sound) gbox.hitAudio("die"); 
-        // maingame.hud.addValue("lives","value",-1);
     		maingame.playerDied({wait:50}); 
     		toys.generate.sparks.simple(this,"sparks",null,{tileset:this.tileset,frames:{speed:4,frames:[6,5,7,8,9,9,9,9]}});	      		
   	  }

@@ -18,8 +18,7 @@ var boardUpdateObjects = [];
 // Load the  game box
 gbox.onLoad(function () {  
   help.akihabaraInit({ 
-     title: "Mongoman", 
-     // splash: {footnotes: ["Music 'Only Heroes Win at Skee Ball' by Greenleo","Contact him: greenleo.bandcamp.com"] }
+     title: "Mongoman"
   }); 
 
   // Load the logo, do at the start so it will be there first for the title screen
@@ -59,16 +58,13 @@ gbox.onLoad(function () {
 
   // The loadAll function loads all the resources and triggers the main game loop
   gbox.loadAll(go);  
-
   // Start the game
   gbox.go();      
 }, false);
 
 // Start game function
 var go = function() {
-  // gbox.setGroups(["background","player","ghosts","bonus","sparks","gamecycle"]);
-  gbox.setGroups(["background", "player", "ghosts", "sparks", "gamecycle"]);
-  
+  gbox.setGroups(["background", "player", "ghosts", "sparks", "gamecycle"]);  
   // Set up the main loop object
   maingame = gamecycle.createMaingame("gamecycle","gamecycle");
   maingame.bullettimer = 0;
@@ -114,9 +110,8 @@ var go = function() {
     for (var y=0;y<maze.map.length;y++) // Let's iterate all the rows...
      for (var x=0;x<maze.map[y].length;x++) // ... and all the colums
        if(maze.map[y][x] > 7) this.pillscount++; // If the row/column contains a "pill" tile (8 for plain pill, 9 for powerpill), let's
-    
-    debugpillcount = this.pillscount;
-    
+
+    // Start the game
     this.newLife();
   }
   
@@ -141,7 +136,6 @@ var go = function() {
   
   // This method is triggered once pr game
   maingame.initializeGame = function() {        
-    // console.log("--------------------------------------------------------- initializeGame");
     // Set up the HUD used to signal all the different values visable to the user
     //     maingame.hud.setWidget("label", {widget:"label", font:"small", value:"1UP", dx:240, dy:10, clear:true});
     // maingame.hud.setWidget("score",{widget:"label",font:"small",value:0,dx:240,dy:25,clear:true});
@@ -260,7 +254,6 @@ var go = function() {
   maingame.gameEvents = function() {
     // If no more pills let's start a new level
     if(maingame.pillscount == 0) {
-    // if(maingame.pillscount < debugpillcount - 5) {
 	 	  // Go to new level
 			maingame.gotoLevel(maingame.level + 1);			
 	 	  // Fire ended game message

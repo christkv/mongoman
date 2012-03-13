@@ -1,6 +1,4 @@
 var WebSocketServer = require('websocket').server;
-// Setup of ports etc
-var port = 3000;
 var connectionIdCounter = 0;
 // Create an express server instance
 var express = require('express'),
@@ -13,8 +11,23 @@ var express = require('express'),
   format = require('util').format,
   cluster = require('cluster');
 
+// Setup of ports etc
+var port = process.env['APP_PORT'] ? process.env['APP_PORT'] : 3000;
+// Environment parameters for db
+var dbHost = process.env['DB_HOST'] ? process.env['DB_HOST'] : 'localhost';
+var dbPort = process.env['DB_PORT'] ? process.env['DB_PORT'] : 27017;
+var dbUser = process.env['DB_USER'] ? process.env['DB_USER'] : 'admin';
+var dbPassword = process.env['DB_PASSWORD'] ? process.env['DB_PASSWORD'] : 'admin';
+
+if(cluster.isMaster) {
+  console.log("--------------------------------------------------- start application with")
+  console.log("app port = " + port)
+  console.log("db host = " + dbHost)
+  console.log("db port = " + dbPort)
+  console.log("db user = " + dbUser)  
+}
 // Set up server for mongo
-var db = new Db('game', new Server('127.0.0.1', 27017));
+var db = new Db('game', new Server(dbHost, dbPort));
 var numCPUs = require('os').cpus().length;
 var numCPUs = 1;
 var gameCollection = null;
@@ -61,7 +74,9 @@ if(cluster.isMaster) {
   // Do the basic setup for the main process
   // Setting up the db and tables
   async.series([
-      function(callback) { db.open(callback); },
+      function(callback) { db.open(function(err, db) {
+        db.admin().authenticate(dbUser, dbPassword, callback);
+      }); },
       function(callback) { db.dropCollection('game', function() { callback(null, null); }); },
       function(callback) { db.dropCollection('board', function() { callback(null, null); }); },
       function(callback) { db.createCollection('game', {capped:true, size:100000, safe:true}, callback); },    
@@ -95,74 +110,79 @@ if(cluster.isMaster) {
 } else {
   // For each slave process let's start up a websocket server instance
   db.open(function(err, db) {
-    app.listen(port, function(err) {
+    db.admin().authenticate(dbUser, dbPassword, function(err, result) {
       if(err) throw err;
+      if(!result) throw new Error("failed to authenticate with user = " + user);
+      
+      app.listen(port, function(err) {
+        if(err) throw err;
 
-      // Assign the collections
-      state.gameCollection = db.collection('game');
-      state.boardCollection = db.collection('board');
+        // Assign the collections
+        state.gameCollection = db.collection('game');
+        state.boardCollection = db.collection('board');
 
-      // Websocket server
-      var wsServer = new WebSocketServer({
-        httpServer: app,    
-        // Firefox 7 alpha has a bug that drops the
-        // connection on large fragmented messages
-        fragmentOutgoingMessages: false
-      });  
-
-      // A new connection from a player
-      wsServer.on('request', function(request) {
-        // Accept the connection
-        var connection = request.accept('game', request.origin);
-        // Add a connection counter id
-        connection.connectionId = parseInt(format("%s%s", process.pid, connectionIdCounter++));
-        // Save the connection to the current state
-        state.connections[connection.connectionId] = connection;
-
-        // Handle closed connections
-        connection.on('close', function() {      
-          cleanUpConnection(state, this);    
-        });
-
-        // Handle incoming messages
-        connection.on('message', function(message) {
-          // All basic communication messages are handled as JSON objects
-          // That includes the request for status of the board.
-          var self = this;
-          // Handle game status messages
-          if(message.type == 'utf8') {      
-            // Decode the json message and take the appropriate action
-            var messageObject = JSON.parse(message.utf8Data);
-            // If initializing the game
-            if(messageObject['type'] == 'initialize') {    
-              initializeBoard(state, self);    
-            } else if(messageObject['type'] == 'dead') {
-              killBoard(state, self);
-            } else if(messageObject['type'] == 'mongowin') {
-              mongomanWon(state, self);
-            } else if(messageObject['type'] == 'ghostdead') {
-              ghostDead(state, self, messageObject);
-            }
-          } else if(message.type == 'binary') {
-            // Binary message update player position
-            state.gameCollection.update({id: self.connectionId}, message.binaryData);
-            // Let's grab the record
-            state.gameCollection.findOne({id: self.connectionId, state:'n'}, {raw:true}, function(err, rawDoc) {
-              if(rawDoc) {
-                // Retrieve the board by id from cache
-                var boardId = state.boardIdByConnections[self.connectionId];                
-                var board = state.connectionsByBoardId[boardId];                
-                // Send the data to all the connections expect the originating connection
-                for(var i = 0; i < board.length; i++) {
-                  if(board[i] != self.connectionId) {
-                    if(state.connections[board[i]] != null) state.connections[board[i]].sendBytes(rawDoc);
-                  }
-                }              
-              }            
-            });
-          }
+        // Websocket server
+        var wsServer = new WebSocketServer({
+          httpServer: app,    
+          // Firefox 7 alpha has a bug that drops the
+          // connection on large fragmented messages
+          fragmentOutgoingMessages: false
         });  
-      });      
+
+        // A new connection from a player
+        wsServer.on('request', function(request) {
+          // Accept the connection
+          var connection = request.accept('game', request.origin);
+          // Add a connection counter id
+          connection.connectionId = parseInt(format("%s%s", process.pid, connectionIdCounter++));
+          // Save the connection to the current state
+          state.connections[connection.connectionId] = connection;
+
+          // Handle closed connections
+          connection.on('close', function() {      
+            cleanUpConnection(state, this);    
+          });
+
+          // Handle incoming messages
+          connection.on('message', function(message) {
+            // All basic communication messages are handled as JSON objects
+            // That includes the request for status of the board.
+            var self = this;
+            // Handle game status messages
+            if(message.type == 'utf8') {      
+              // Decode the json message and take the appropriate action
+              var messageObject = JSON.parse(message.utf8Data);
+              // If initializing the game
+              if(messageObject['type'] == 'initialize') {    
+                initializeBoard(state, self);    
+              } else if(messageObject['type'] == 'dead') {
+                killBoard(state, self);
+              } else if(messageObject['type'] == 'mongowin') {
+                mongomanWon(state, self);
+              } else if(messageObject['type'] == 'ghostdead') {
+                ghostDead(state, self, messageObject);
+              }
+            } else if(message.type == 'binary') {
+              // Binary message update player position
+              state.gameCollection.update({id: self.connectionId}, message.binaryData);
+              // Let's grab the record
+              state.gameCollection.findOne({id: self.connectionId, state:'n'}, {raw:true}, function(err, rawDoc) {
+                if(rawDoc) {
+                  // Retrieve the board by id from cache
+                  var boardId = state.boardIdByConnections[self.connectionId];                
+                  var board = state.connectionsByBoardId[boardId];                
+                  // Send the data to all the connections expect the originating connection
+                  for(var i = 0; i < board.length; i++) {
+                    if(board[i] != self.connectionId) {
+                      if(state.connections[board[i]] != null) state.connections[board[i]].sendBytes(rawDoc);
+                    }
+                  }              
+                }            
+              });
+            }
+          });  
+        });      
+      });          
     });    
   })  
 }
