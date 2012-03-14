@@ -14,7 +14,7 @@ var createPlayerMongoman = function() {
   		toys.topview.initialize(this,{
   			colh:gbox.getTiles(this.tileset).tileh, 
   			colw:gbox.getTiles(this.tileset).tilew,
-  			staticspeed:2, 
+  			staticspeed:4, 
   			nodiagonals:true, 
   			noreset:true, 
   			frames:{ 

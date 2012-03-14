@@ -11,21 +11,21 @@ var createRemoteGhostPlayer = function(data) {
   		toys.topview.initialize(this,{
   			colh:gbox.getTiles(this.tileset).tileh, // That is like capman...
   			colw:gbox.getTiles(this.tileset).tilew,
-  			staticspeed:2,
+  			staticspeed:4,
   			nodiagonals:true,
   			noreset:true,
-  			frames: {
-          still:{ speed:2, frames:[0] },
-          hit:{speed:1,frames:[0,1,0,1]},
-          standup:{ speed:1, frames:[0] },
-          standdown:{ speed:1, frames:[1] },
-          standleft:{ speed:1, frames:[2] },
-          standright:{ speed:1, frames:[2] },
-          movingup:{speed:1,frames:[0] },
-          movingdown:{speed:1,frames:[1] },
-          movingleft:{speed:1,frames:[2] },
-          movingright:{speed:1,frames:[2] }
-   		  },
+  			frames:{
+  				still:{ speed:2, frames:[0] },
+  				hit:{speed:1,frames:[0,1,0,1]},
+  				standup:{ speed:1, frames:[0] },
+  				standdown:{ speed:1, frames:[1] },
+  				standleft:{ speed:1, frames:[2] },
+  				standright:{ speed:1, frames:[2] },
+  				movingup:{speed:3,frames:[0] },
+  				movingdown:{speed:3,frames:[1] },
+  				movingleft:{speed:3,frames:[2] },
+  				movingright:{speed:3,frames:[2] }
+  			},
   			// Set start point for the ghost
 				x:data.x,
 				y:data.y  			
@@ -187,7 +187,7 @@ var createRemoteMongoManPlayer = function(data) {
   		toys.topview.initialize(this,{
   			colh:gbox.getTiles(this.tileset).tileh, 
   			colw:gbox.getTiles(this.tileset).tilew,
-  			staticspeed:2, 
+  			staticspeed:4, 
   			nodiagonals:true, 
   			noreset:true, 
   			frames:{ 

@@ -15,7 +15,7 @@ var createPlayerGhost = function() {
   		toys.topview.initialize(this,{
   			colh:gbox.getTiles(this.tileset).tileh, // That is like capman...
   			colw:gbox.getTiles(this.tileset).tilew,
-  			staticspeed:2,
+  			staticspeed:4,
   			nodiagonals:true,
   			noreset:true,
   			frames:{
@@ -25,10 +25,10 @@ var createPlayerGhost = function() {
   				standdown:{ speed:1, frames:[1] },
   				standleft:{ speed:1, frames:[2] },
   				standright:{ speed:1, frames:[2] },
-  				movingup:{speed:1,frames:[0] },
-  				movingdown:{speed:1,frames:[1] },
-  				movingleft:{speed:1,frames:[2] },
-  				movingright:{speed:1,frames:[2] }
+  				movingup:{speed:3,frames:[0] },
+  				movingdown:{speed:3,frames:[1] },
+  				movingleft:{speed:3,frames:[2] },
+  				movingright:{speed:3,frames:[2] }
   			}
   		});
   	},
