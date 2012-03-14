@@ -301,7 +301,7 @@ var updateMongomanDeathStats = function(_state, connection, messageObject, sessi
       _state.sessionsCollection.findOne({id:sessionId}, function(err, session) {
         if(session) {
           _state.playersCollection.update({name:session.name},
-            {$inc: {'score': messageObject.score, 'stats.mongoman.deaths':1, 'numberofgames': 1}});                        
+            {$inc: {'score': messageObject.score, 'stats.mongoman.deaths':1, 'numberofgames': 1}});
         }
       });
 
@@ -310,7 +310,7 @@ var updateMongomanDeathStats = function(_state, connection, messageObject, sessi
       _state.sessionsCollection.find({b:board._id, id: {$ne: sessionId}}).toArray(function(err, items) {
         if(items) {
           for(var i = 0; i < items.length; i++) {
-            _state.playersCollection.update({name:items[i].name}, {$inc: {'stats.ghost.wins':1}});
+            _state.playersCollection.update({name:items[i].name}, {$inc: {'stats.ghost.wins':1, 'numberofgames': 1}});
           }
         }
       })
@@ -358,7 +358,7 @@ var updateMongomanWinStats = function(_state, connection, messageObject, session
       _state.sessionsCollection.find({b:board._id, id: {$ne: sessionId}}).toArray(function(err, items) {
         if(items) {
           for(var i = 0; i < items.length; i++) {
-            _state.playersCollection.update({name:items[i].name}, {$inc: {'stats.ghost.deaths':1}});
+            _state.playersCollection.update({name:items[i].name}, {$inc: {'stats.ghost.deaths':1, 'numberofgames': 1}});
           }
         }
       })
