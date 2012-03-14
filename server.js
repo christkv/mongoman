@@ -122,7 +122,7 @@ app.get('/delete', function(req, res) {
 
 app.get('/highscore', function(req, res) {
   // Fetch the users sorted by score
-  state.playersCollection.find({}).sort({score:-1}).toArray(function(err, players) {
+  state.playersCollection.find({}).sort({score:-1}).limit(20).toArray(function(err, players) {
     players = players == null ? [] : players;
     // Render highscore table
     res.render('highscore', { layout: false, players:players});
