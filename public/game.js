@@ -48,19 +48,39 @@ gbox.onLoad(function () {
 
   // Now let's load some audio samples...
   var audioserver = "resources/audio/"; 
-  gbox.addAudio("eat", [audioserver+"eat.mp3",audioserver+"eat.ogg"],{channel:"sfx"}); 
   gbox.addAudio("eatghost", [audioserver+"laser.mp3",audioserver+"laser.ogg"],{channel:"sfx"});
-  gbox.addAudio("powerpill", [audioserver+"powerup3.mp3",audioserver+"powerup3.ogg"],{channel:"sfx"});
-  gbox.addAudio("die", [audioserver+"die.mp3",audioserver+"die.ogg"],{channel:"sfx"});
-  gbox.addAudio("bonus", [audioserver+"coin.mp3",audioserver+"coin.ogg"],{channel:"sfx"});
-  gbox.addAudio("default-menu-option", [audioserver+"select.mp3",audioserver+"select.ogg"],{channel:"sfx"});
-  gbox.addAudio("default-menu-confirm", [audioserver+"start.mp3",audioserver+"start.ogg"],{channel:"sfx"});
-  gbox.addAudio("ingame", [audioserver+"capman-ingame.mp3",audioserver+"capman-ingame.ogg"],{channel:"bgmusic",loop:true});
 
-  // The loadAll function loads all the resources and triggers the main game loop
-  gbox.loadAll(go);  
-  // Start the game
-  gbox.go();      
+  // determine browser
+  var filetype;
+  var agent = navigator.userAgent.toLowerCase();
+  // adjust for browser
+  if(agent.indexOf("chrome") > -1){
+  	filetype = ".mp3";
+  } else if(agent.indexOf("opera") > -1) {
+  	filetype = ".ogg";
+  } else if(agent.indexOf("firefox") > -1) {
+  	filetype = ".ogg";
+  } else if(agent.indexOf("safari") > -1) {
+  	filetype = ".mp3";
+  } else if(agent.indexOf("msie") > -1) {
+  	filetype = ".mp3";
+  }
+  
+  // Load all the audio using SoundJS
+  SoundJS.onLoadQueueComplete = function() {
+    // The loadAll function loads all the resources and triggers the main game loop
+    gbox.loadAll(go);  
+    // Start the game
+    gbox.go();          
+  };
+  
+  // Batch the audio
+  SoundJS.addBatch([
+  		{name:"eat", src:(audioserver + "eat" + filetype), instances:20},
+  		{name:"eatghost", src:(audioserver + "laser" + filetype), instances:1},
+  		{name:"powerpill", src:(audioserver + "powerup3" + filetype), instances:1},
+  		{name:"die", src:(audioserver + "die" + filetype), instances:1},
+  		{name:"music", src:(audioserver + "capman-ingame" + filetype), instances:1}]);  		
 }, false);
 
 // Start game function
@@ -72,6 +92,8 @@ var go = function() {
   
   // Set method called each time we change the level
   maingame.changeLevel = function(level) {            
+    // start the music
+    SoundJS.play("music", null, 0.2, true);
     // Reset local score
     maingame.hud.setWidget("score",{widget:"label",font:"small",value:0, dx:240, dy:25, clear:true});
     // Let's add the player
@@ -187,7 +209,8 @@ var go = function() {
           client.dispatchCommand({type:'initialize'});    
         });                          
       } else if(message['state'] == 'ghostdead') {
-        if(sound) gbox.hitAudio("eatghost");
+        // if(sound) gbox.hitAudio("eatghost");
+        if(sound) SoundJS.play('eatghost');
         // Check if it's a remote ghost and if it is kill it
         if(currentGhosts[message['id']] != null) {
           currentGhosts[message['id']].kill();

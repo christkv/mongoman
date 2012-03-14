@@ -140,7 +140,7 @@ var createRemoteGhostPlayer = function(data) {
 							// Up the combo
 							mongoman.scorecombo++;
               // Signal eaten a ghost
-              if(sound) gbox.hitAudio("eatghost");
+              if(sound) SoundJS.play("eatghost");              
               // Fire off I'm dead message
         	    client.dispatchCommand({type:'ghostdead', id:this.conId});
               // gbox.hitAudio("eatghost");
@@ -165,7 +165,7 @@ var createRemoteGhostPlayer = function(data) {
 
   	// And now, a custom method. This one will kill the player and will be called by ghosts, when colliding with capman.
   	kill:function() {
-      if(sound)gbox.hitAudio("die");
+      if(sound) SoundJS.play("die");
   	  // Set status to eaten
   	  this.status = 'eaten';
   	  // Change tileset
@@ -251,14 +251,14 @@ var createRemoteMongoManPlayer = function(data) {
         // Handle pills
         if(inmouth>7) {
           if(inmouth == 9) {
-            if(sound) gbox.hitAudio("powerpill");
+            if(sound) SoundJS.play("powerpill");
             if(gbox.getObject("ghosts","ghost1")) gbox.getObject("ghosts","ghost1").makeeatable();
             if(gbox.getObject("ghosts","ghost2")) gbox.getObject("ghosts","ghost2").makeeatable();
             if(gbox.getObject("ghosts","ghost3")) gbox.getObject("ghosts","ghost3").makeeatable();
             if(gbox.getObject("ghosts","ghost4")) gbox.getObject("ghosts","ghost4").makeeatable();
             if(gbox.getObject("player", "playerghost")) gbox.getObject("player","playerghost").makeeatable();
           } else {
-            if(sound) gbox.hitAudio("eat");
+            if(sound) SoundJS.play("eat");
           }
           
           var mouthx = help.xPixelToTileX(maze,this.x + this.hw);
@@ -279,7 +279,7 @@ var createRemoteMongoManPlayer = function(data) {
   	kill:function() {
       if(!this.killed) {
         this.killed = true; 
-        if(sound) gbox.hitAudio("die"); 
+        if(sound) SoundJS.play("die");        
         maingame.playerDied({wait:50}); 
         toys.generate.sparks.simple(this,"sparks",null,{tileset:this.tileset,frames:{speed:4,frames:[6,5,7,8,9,9,9,9]}});     
       }

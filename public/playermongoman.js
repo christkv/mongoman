@@ -88,14 +88,14 @@ var createPlayerMongoman = function() {
         if(inmouth>7) {
           if(inmouth == 9) {
             this.scorecombo = 1;
-            if(sound) gbox.hitAudio("powerpill");
+            if(sound) SoundJS.play("powerpill");
             if(gbox.getObject("ghosts","ghost1")) gbox.getObject("ghosts","ghost1").makeeatable();
             if(gbox.getObject("ghosts","ghost2")) gbox.getObject("ghosts","ghost2").makeeatable();
             if(gbox.getObject("ghosts","ghost3")) gbox.getObject("ghosts","ghost3").makeeatable();
             if(gbox.getObject("ghosts","ghost4")) gbox.getObject("ghosts","ghost4").makeeatable();
             if(gbox.getObject("player", "playerghost")) gbox.getObject("player","playerghost").makeeatable();
           } else {
-            if(sound) gbox.hitAudio("eat");
+            if(sound) SoundJS.play("eat");
 						maingame.hud.addValue("score","value",10); 
 					}
 
@@ -120,7 +120,7 @@ var createPlayerMongoman = function() {
   	    client.dispatchCommand({type:'dead', score:maingame.hud.getNumberValue("score","value")});
   	    // Animate death
     		this.killed = true; 
-    		if(sound) gbox.hitAudio("die"); 
+    		if(sound) SoundJS.play("die"); 
     		maingame.playerDied({wait:50}); 
     		toys.generate.sparks.simple(this,"sparks",null,{tileset:this.tileset,frames:{speed:4,frames:[6,5,7,8,9,9,9,9]}});	      		
   	  }
