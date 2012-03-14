@@ -37,6 +37,8 @@ var createRemoteGhostPlayer = function(data) {
   		this.counter = (this.counter+1) % 10;
   		 // If capman is still alive and the game is not "hold" (level changing fadein/fadeouts etc.) and the "bullet timer" is not stopping the game.
   		if(!maingame.gameIsHold() && !maingame.bullettimer) {	
+        // Grab the mongoman object
+        var mongoman = isMongoman ? gbox.getObject("player", "mongoman") : gbox.getObject("ghosts", "mongoman");
 
     		// The nuber of ticks the ghost i in danger
     		if(this.status == 'running' && this.time > 0) {
@@ -49,6 +51,8 @@ var createRemoteGhostPlayer = function(data) {
     		} else if(this.status == 'running') {
     	    this.tileset = 'playerghost'
     	    this.status = 'chasing';		  
+					// Up the combo
+					mongoman.scorecombo = 1;
     		}
 
         // Return to the house
@@ -122,8 +126,6 @@ var createRemoteGhostPlayer = function(data) {
     			// setFrame sets the right frame checking the facing and the defined animations in "initialize"
     			toys.topview.setFrame(this); 
 
-          // Grab the mongoman object
-          var mongoman = isMongoman ? gbox.getObject("player", "mongoman") : gbox.getObject("ghosts", "mongoman");
           // Check if we have a collision
           if(isMongoman && mongoman != null && gbox.collides(this, mongoman, 2)) {         
             // If we are chasing him he is dead
@@ -133,6 +135,11 @@ var createRemoteGhostPlayer = function(data) {
               // kill mongoman
               mongoman.kill();
             } else if(this.status == "running") {
+              // We get a score combo bonus for eating ghosts
+							maingame.hud.addValue("score","value",mongoman.scorecombo * 100);
+							// Up the combo
+							mongoman.scorecombo++;
+              // Signal eaten a ghost
               if(sound) gbox.hitAudio("eatghost");
               // Fire off I'm dead message
         	    client.dispatchCommand({type:'ghostdead', id:this.conId});

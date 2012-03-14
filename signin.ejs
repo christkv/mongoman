@@ -1,0 +1,38 @@
+<head>
+  <style>
+    form {
+      font-family:Courier, Georgia, Serif;
+      text-align:center;
+      vertical-align:text-top;
+      position:relative;
+      top:75;
+      color:white;
+    }
+    
+    body {
+      background-color:black;
+    }
+    
+    a {
+      color:red;
+    }
+    
+    #error {
+      color:red;
+    }
+  </style>
+</head>
+<body>
+  <form action='/game' method='post'>
+    <img src='resources/capman/logo.png'/>
+    <h1>JOIN THE FIGHT</h1>
+    <h2><a href="/highscore">Highscore list</a></h2>
+    <div id="error"><%= typeof values == 'undefined' ? '' : values.error %></div>
+    <div>
+      Username <input id="name" name="name" type='text'/><br/>
+      Password <input id="password" name="password" type='password'/>
+      <p/>
+    </div>    
+    <input type='submit' value="Start"/>
+  </form>
+</body>

@@ -1,0 +1,58 @@
+<head>
+  <style>
+    body {
+      font-family:Courier, Georgia, Serif;
+      text-align:center;
+      vertical-align:text-top;
+      position:relative;
+      top:75;
+      color:white;
+      background-color:black;
+    }
+    
+    #error {
+      color:red;
+    }
+    
+    td {
+      text-align:center;
+    }
+    
+    a {
+      color:red;
+    }
+  </style>
+</head>
+<body>
+  <img src='resources/capman/logo.png'/>
+  <h1>HIGHSCORE</h1>  
+  <h2><a href="/">Back</a></h2>
+  <table border="1" align="center" width="90%">
+    <thead>
+      <th>Player name</th>
+      <th>Score</th>      
+      <th>#Games</th>      
+      <th>#MWins</th>      
+      <th>#MLoss</th>
+      <th>#GWins</th>      
+      <th>#GLoss</th>
+      <th>#Eaten</th>      
+    </thead>
+    <% 
+    for(var i = 0; i < players.length; i++) {
+      %>
+        <tr>
+          <td><%= players[i].name %></td>
+          <td><%= players[i].score %></td>
+          <td><%= players[i].numberofgames %></td>
+          <td><%= players[i].stats.mongoman.wins %></td>
+          <td><%= players[i].stats.mongoman.deaths %></td>
+          <td><%= players[i].stats.ghost.wins %></td>
+          <td><%= players[i].stats.ghost.deaths %></td>
+          <td><%= players[i].stats.ghost.eaten %></td>
+        </tr>
+      <%
+    }
+    %>    
+  </table>
+</body>

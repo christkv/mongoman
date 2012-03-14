@@ -87,6 +87,7 @@ var createPlayerMongoman = function() {
         // Handle pills
         if(inmouth>7) {
           if(inmouth == 9) {
+            this.scorecombo = 1;
             if(sound) gbox.hitAudio("powerpill");
             if(gbox.getObject("ghosts","ghost1")) gbox.getObject("ghosts","ghost1").makeeatable();
             if(gbox.getObject("ghosts","ghost2")) gbox.getObject("ghosts","ghost2").makeeatable();
@@ -95,7 +96,8 @@ var createPlayerMongoman = function() {
             if(gbox.getObject("player", "playerghost")) gbox.getObject("player","playerghost").makeeatable();
           } else {
             if(sound) gbox.hitAudio("eat");
-          }
+						maingame.hud.addValue("score","value",10); 
+					}
 
           var mouthx = help.xPixelToTileX(maze,this.x + this.hw);
           var mouthy = help.yPixelToTileY(maze,this.y + this.hh);
@@ -115,7 +117,7 @@ var createPlayerMongoman = function() {
   	kill:function() {
   	  if(!this.killed) {
   	    // Fire off I'm dead message
-  	    client.dispatchCommand({type:'dead'});
+  	    client.dispatchCommand({type:'dead', score:maingame.hud.getNumberValue("score","value")});
   	    // Animate death
     		this.killed = true; 
     		if(sound) gbox.hitAudio("die"); 

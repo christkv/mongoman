@@ -10,6 +10,7 @@ var sound = true;
 
 // User states
 var isMongoman = false;
+var playerName = '';
 // The user moved
 var updateObject = null;
 // The board changed
@@ -71,6 +72,8 @@ var go = function() {
   
   // Set method called each time we change the level
   maingame.changeLevel = function(level) {            
+    // Reset local score
+    maingame.hud.setWidget("score",{widget:"label",font:"small",value:0, dx:240, dy:25, clear:true});
     // Let's add the player
     if(isMongoman) {
       gbox.addObject(createPlayerMongoman());
@@ -136,16 +139,6 @@ var go = function() {
   
   // This method is triggered once pr game
   maingame.initializeGame = function() {        
-    // Set up the HUD used to signal all the different values visable to the user
-    //     maingame.hud.setWidget("label", {widget:"label", font:"small", value:"1UP", dx:240, dy:10, clear:true});
-    // maingame.hud.setWidget("score",{widget:"label",font:"small",value:0,dx:240,dy:25,clear:true});
-    // maingame.hud.setWidget("label",{widget:"label",font:"small",value:"HI",dx:240,dy:40,clear:true});
-    // maingame.hud.setWidget("hiscore",{widget:"label",font:"small",value:0,dx:240,dy:55,clear:true});
-    // maingame.hud.setWidget("lives",{widget:"symbols",minvalue:0,value:3-maingame.difficulty,maxshown:3,tileset:"capman",tiles:[5],dx:240,dy:70,gapx:16,gapy:0});
-    // maingame.hud.setWidget("bonus",{widget:"stack",rightalign:true,tileset:"bonus",dx:gbox.getScreenW()-5,dy:gbox.getScreenH()-34,gapx:12,gapy:0,maxshown:8,value:[]});
-    // maingame.hud.setWidget("stage",{widget:"label",font:"small",value:"",dx:0,dw:gbox.getScreenW()-5,dy:gbox.getScreenH()-13,halign:gbox.ALIGN_RIGHT,clear:true});   
-    // maingame.hud.setValue("hiscore","value",gbox.dataLoad("capman-hiscore"));
-    
     //
     // When the web socket connects
     //
@@ -153,6 +146,11 @@ var go = function() {
       // JSON message
       if(message['state'] == 'initialize') {
         isMongoman = message['isMongoman'];
+        playerName = message['name'];
+        // Set up the name
+        maingame.hud.setWidget("label", {widget:"label", font:"small", value:playerName, dx:240, dy:10, clear:true});
+        // Reset local score
+        maingame.hud.setWidget("score",{widget:"label",font:"small",value:0, dx:240, dy:25, clear:true});
         // Let's add the object that will draw the maze
         gbox.addObject(drawMaze);
       } else if(message['state'] == 'dead') {
@@ -268,7 +266,7 @@ var go = function() {
 	 	  // Go to new level
 			maingame.gotoLevel(maingame.level + 1);			
 	 	  // Fire ended game message
-	 	  client.dispatchCommand({type:'mongowin'})
+	 	  client.dispatchCommand({type:'mongowin', score:maingame.hud.getNumberValue("score","value")})
     }
     
     // If we are counting down the time

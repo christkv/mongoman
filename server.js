@@ -1,16 +1,19 @@
-var WebSocketServer = require('websocket').server;
-var connectionIdCounter = 0;
 // Create an express server instance
 var express = require('express'),
   mongo = require('mongodb'),
+  crypto = require('crypto'),
   BSON = mongo.BSONPure.BSON,
   Db = mongo.Db,
   Server = mongo.Server,
   ObjectID = mongo.ObjectID,
   async = require('async'),
   format = require('util').format,
-  cluster = require('cluster');
-
+  cluster = require('cluster'),
+  WebSocketServer = require('websocket').server,
+  connectUtils = require('connect').utils;
+  
+// Setup for the connection id
+var connectionIdCounter = 0;
 // Setup of ports etc
 var port = process.env['APP_PORT'] ? process.env['APP_PORT'] : 3000;
 // Environment parameters for db
@@ -53,11 +56,61 @@ app.configure(function() {
   app.use(express.static(__dirname + "/public"));
   app.set('views', __dirname);
   app.set('view engine', 'ejs');
+  app.use(express.bodyParser());
+  app.use(express.methodOverride());
+  app.use(express.cookieParser());
+  app.use(express.session({ secret: "mongoman rules" }));  
 });
 
 // Provide the bootstrap file
-app.get('/', function(req, res) {
-  res.render('index', { layout: false });
+app.post('/game', function(req, res) {
+  // Unpack params
+  var name = req.param('name');
+  // Hash password
+  var sha1password = crypto.createHash('sha1').update(req.param('password')).digest('hex');
+
+  //
+  // Need to do manual session handling as websocket does not correctly work with
+  // Express cookie pipeline
+  //
+  // Parse the cookie
+  var cookie = connectUtils.parseCookie(req.headers['cookie']);
+  // Grab the session id
+  var sessionId = cookie['connect.sid'];
+  // Fetch the player collection
+  var players = db.collection('players');
+  // Check if the player name is taken
+  players.findOne({name:name, password:sha1password}, function(err, doc) {
+    if(!doc) {      
+      // Insert the player in the players collection, including stats about the gameplay
+      players.insert({name:name, 
+        password:sha1password, 
+        score:0,
+        numberofgames:0,
+        stats: {
+          mongoman: {
+            deaths: 0,
+            wins:0
+          },       
+             
+          ghost: {
+            deaths: 0,
+            wins:0,
+            eaten:0
+          }
+        }
+      });
+    }    
+    // Update session relationship between id and player
+    state.sessionsCollection.update({id:sessionId}, {$set:{name:name, id:sessionId, b:new ObjectID()}}, {upsert:true});
+    // Redirect to the game
+    res.redirect('/start')
+  })
+});
+
+app.get('/start', function(req, res) {
+  // Render the game
+  res.render('index', { layout: false });  
 });
 
 app.get('/delete', function(req, res) {
@@ -65,6 +118,23 @@ app.get('/delete', function(req, res) {
   state.boardCollection.update({number_of_players: {$lt:100}}, {$set:{number_of_players:100}}, {multi:true});            
   // Render the index again
   res.render('index', { layout: false });
+})
+
+app.get('/highscore', function(req, res) {
+  // Fetch the users sorted by score
+  state.playersCollection.find({}).sort({score:-1}).toArray(function(err, players) {
+    players = players == null ? [] : players;
+    // Render highscore table
+    res.render('highscore', { layout: false, players:players});
+  });
+});
+
+//
+//  Handles user name setup
+//
+app.get('/', function(req, res) {
+  // Render the first screen
+  res.render('signin', { layout: false })
 })
 
 //
@@ -84,8 +154,10 @@ if(cluster.isMaster) {
       }); },
       function(callback) { db.dropCollection('game', function() { callback(null, null); }); },
       function(callback) { db.dropCollection('board', function() { callback(null, null); }); },
+      function(callback) { db.dropCollection('sessions', function() { callback(null, null); }); },
       function(callback) { db.createCollection('game', {capped:true, size:100000, safe:true}, callback); },    
       function(callback) { db.createCollection('board', {capped:true, size:100000, safe:true}, callback); },    
+      function(callback) { db.createCollection('sessions', {capped:true, size:100000, safe:true}, callback); },    
       function(callback) { db.ensureIndex('board', {number_of_players:1}, callback); },    
       function(callback) { db.ensureIndex('game', {'id':1}, callback); },    
       function(callback) { db.ensureIndex('game', {'b':1}, callback); },          
@@ -94,6 +166,7 @@ if(cluster.isMaster) {
       // Assign the collections
       state.gameCollection = result[3];
       state.boardCollection = result[4];
+      state.sessionsCollection = result[5];
   });
 
   // Fork workers (one pr. cpu), the web workers handle the websockets
@@ -128,6 +201,8 @@ if(cluster.isMaster) {
         // Assign the collections
         state.gameCollection = db.collection('game');
         state.boardCollection = db.collection('board');
+        state.sessionsCollection = db.collection('sessions');
+        state.playersCollection = db.collection('players');
 
         // Websocket server
         var wsServer = new WebSocketServer({
@@ -160,14 +235,31 @@ if(cluster.isMaster) {
             if(message.type == 'utf8') {      
               // Decode the json message and take the appropriate action
               var messageObject = JSON.parse(message.utf8Data);
+              // Parse the cookie
+              var cookie = connectUtils.parseCookie(request.httpRequest.headers['cookie']);
+              // Grab the session id
+              var sessionId = cookie['connect.sid'];
               // If initializing the game
               if(messageObject['type'] == 'initialize') {    
-                initializeBoard(state, self);    
+                // Grab the username based on the session id and initialize the board
+                state.sessionsCollection.findOne({id:sessionId}, function(err, session) {
+                  if(err) throw err;
+                  session = typeof session == 'undefined' || session == null ? {} : session;
+                  initializeBoard(state, session, self);                      
+                })
               } else if(messageObject['type'] == 'dead') {
+                updateMongomanDeathStats(state, self, messageObject, sessionId);
+                // Kill the board so we can start again
                 killBoard(state, self);
               } else if(messageObject['type'] == 'mongowin') {
+                // Update mongoman win stats
+                updateMongomanWinStats(state, self, messageObject, sessionId);
+                // Signal mongoman won
                 mongomanWon(state, self);
               } else if(messageObject['type'] == 'ghostdead') {
+                // Update player stats
+                updateGhostDeadStats(state, self, sessionId);
+                // Signal ghost is dead
                 ghostDead(state, self, messageObject);
               }
             } else if(message.type == 'binary') {
@@ -196,6 +288,82 @@ if(cluster.isMaster) {
       });          
     });    
   })  
+}
+
+/**
+ * Updates statistics for when mongoman dies
+ **/
+var updateMongomanDeathStats = function(_state, connection, messageObject, sessionId) {
+  // Grab the board
+  _state.boardCollection.findOne({'players':connection.connectionId}, function(err, board) {
+    if(board) {
+      // Let's update the score for the mongoman player
+      _state.sessionsCollection.findOne({id:sessionId}, function(err, session) {
+        if(session) {
+          _state.playersCollection.update({name:session.name},
+            {$inc: {'score': messageObject.score, 'stats.mongoman.deaths':1, 'numberofgames': 1}});                        
+        }
+      });
+
+      // Fetch all the sessions playing minus the mongoman one, and update ghost
+      // wins by 1
+      _state.sessionsCollection.find({b:board._id, id: {$ne: sessionId}}).toArray(function(err, items) {
+        if(items) {
+          for(var i = 0; i < items.length; i++) {
+            _state.playersCollection.update({name:items[i].name}, {$inc: {'stats.ghost.wins':1}});
+          }
+        }
+      })
+    }
+  });  
+}
+
+/**
+ * Updates statistics for when a ghost is eaten
+ **/
+var updateGhostDeadStats = function(_state, connection, sessionId) {
+  // Grab the board
+  _state.boardCollection.findOne({'players':connection.connectionId}, function(err, board) {
+    if(board) {
+      // Fetch all the sessions playing minus the mongoman one, and update ghost
+      // wins by 1
+      _state.sessionsCollection.find({b:board._id, id: {$ne: sessionId}}).toArray(function(err, items) {
+        if(items) {
+          for(var i = 0; i < items.length; i++) {
+            _state.playersCollection.update({name:items[i].name}, {$inc: {'stats.ghost.eaten':1}});
+          }
+        }
+      })
+    }
+  });  
+}
+
+/**
+ * Updates statistics for when mongoman wins
+ **/
+var updateMongomanWinStats = function(_state, connection, messageObject, sessionId) {
+  // Grab the board
+  _state.boardCollection.findOne({'players':connection.connectionId}, function(err, board) {
+    if(board) {
+      // Let's update the score for the mongoman player
+      _state.sessionsCollection.findOne({id:sessionId}, function(err, session) {
+        if(session) {
+          _state.playersCollection.update({name:session.name},
+            {$inc: {'score': messageObject.score, 'stats.mongoman.wins':1, 'numberofgames': 1}});                        
+        }
+      });
+
+      // Fetch all the sessions playing minus the mongoman one, and update ghost
+      // wins by 1
+      _state.sessionsCollection.find({b:board._id, id: {$ne: sessionId}}).toArray(function(err, items) {
+        if(items) {
+          for(var i = 0; i < items.length; i++) {
+            _state.playersCollection.update({name:items[i].name}, {$inc: {'stats.ghost.deaths':1}});
+          }
+        }
+      })
+    }
+  });  
 }
 
 /**
@@ -237,7 +405,7 @@ var killBoard = function(_state, connection, removeConnection) {
  * This function creates a new board if there are not available, if there is a board available
  * for this process with less than 5 players add ourselves to it
  **/
-var initializeBoard = function(_state, connection) {
+var initializeBoard = function(_state, session, connection) {
   // Locate any boards with open spaces and add ourselves to it
   // using findAndModify to ensure we are the only one changing the board
   _state.boardCollection.findAndModify({number_of_players: {$lt:5}, pid: process.pid}, [], {
@@ -252,6 +420,8 @@ var initializeBoard = function(_state, connection) {
           number_of_players: 1,
           players: [connection.connectionId, 0, 0, 0, 0]
         }
+      // Update session with board id
+      _state.sessionsCollection.update({id:session.id}, {$set:{b:newBoard._id}});
       // Ensure we cache the relationships between boards and connections
       if(_state.connectionsByBoardId[newBoard._id.id] == null) _state.connectionsByBoardId[newBoard._id.id] = [];
       _state.connectionsByBoardId[newBoard._id.id].push(connection.connectionId);
@@ -263,8 +433,10 @@ var initializeBoard = function(_state, connection) {
       // Prime the board game with the monogman
       _state.gameCollection.insert({id:connection.connectionId, b:newBoard._id, role:'m', state:'n', pos:{x:0, y:0, accx:0, accy:0, facing:0, xpushing:0, ypushing:0}});
       // Signal the gamer we are mongoman
-      connection.sendUTF(JSON.stringify({state:'initialize', isMongoman:true}));
+      connection.sendUTF(JSON.stringify({state:'initialize', isMongoman:true, name:session['name']}));
     } else {
+      // Update session with board id
+      _state.sessionsCollection.update({id:session.id}, {$set:{b:board._id}});
       // Ensure we cache the relationships between boards and connections
       if(_state.connectionsByBoardId[board._id.id] == null) _state.connectionsByBoardId[board._id.id] = [];
       _state.connectionsByBoardId[board._id.id].push(connection.connectionId);
@@ -272,7 +444,7 @@ var initializeBoard = function(_state, connection) {
       // Prime the board game with the ghost
       _state.gameCollection.insert({id:connection.connectionId, b:board._id, role:'g', state:'n', pos:{x:0, y:0, accx:0, accy:0, facing:0, xpushing:0, ypushing:0}});
       // There is a board, we are a ghost, message the user that we are ready and also send the state of the board
-      connection.sendUTF(JSON.stringify({state:'initialize', isMongoman:false}));
+      connection.sendUTF(JSON.stringify({state:'initialize', isMongoman:false, name:session['name']}));
       // Find all board positions and send
       _state.gameCollection.find({b:board._id}, {raw:true}).toArray(function(err, docs) {
         if(!err) {
