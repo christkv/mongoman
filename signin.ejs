@@ -17,6 +17,20 @@
       color:red;
     }
     
+    #copyright {
+      text-align:center;      
+    }
+    
+    strong {
+      font-family:Courier, Georgia, Serif;
+      font-size:8pt;
+      text-align:center;
+      vertical-align:text-top;
+      position:relative;
+      top:200;
+      color:white;      
+    }
+    
     #error {
       color:red;
     }
@@ -24,7 +38,7 @@
 </head>
 <body>
   <form action='/game' method='post'>
-    <img src='resources/capman/logo.png'/>
+    <img src='resources/mongoman/logo.png'/>
     <h1>JOIN THE FIGHT</h1>
     <h2><a href="/highscore">Highscore list</a></h2>
     <div id="error"><%= typeof values == 'undefined' ? '' : values.error %></div>
@@ -34,5 +48,12 @@
       <p/>
     </div>    
     <input type='submit' value="Start"/>
+    <p/>
+    <p/>
   </form>
+  <div id="copyright">
+    <strong>Adapted from akihabara example by (Francesco Cottone, <a href="http://www.kesiev.com/">http://www.kesiev.com/</a>) by Christian Kvalheim</strong>
+    <br/>
+    <strong>Background music (Only Heroes Win at Skee Ball) by Greenleo, Contact him: <a href="http://greenleo.bandcamp.com">http://greenleo.bandcamp.com</a></strong>
+  </div>
 </body>

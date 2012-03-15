@@ -1,3 +1,9 @@
+// ---
+// Copyright (c) 2010 Francesco Cottone, http://www.kesiev.com/
+// Adapted by Christian Kvalheim, http://www.christiankvalheim.com
+// Licensed under GPL/MIT
+// ---
+
 // Game state variables
 var maingame = null;
 var maze = null;
@@ -19,15 +25,16 @@ var boardUpdateObjects = [];
 // Load the  game box
 gbox.onLoad(function () {  
   help.akihabaraInit({ 
-     title: "Mongoman"
+     title: "Mongoman",
+     splash:{footnotes:["Music 'Only Heroes Win at Skee Ball' by Greenleo","Contact him: greenleo.bandcamp.com"]}
   }); 
 
   // Load the logo, do at the start so it will be there first for the title screen
-  gbox.addImage("logo","resources/capman/logo.png");
+  gbox.addImage("logo","resources/mongoman/logo.png");
   // Load the sprite sheet
-  gbox.addImage("cels","resources/capman/cels.png");
+  gbox.addImage("cels","resources/mongoman/cels.png");
   // Load the font set
-  gbox.addImage("font","resources/capman/font.png");
+  gbox.addImage("font","resources/mongoman/font.png");
 
   // Font are mapped over an image, setting the first letter, the letter size, the length of all rows of letters and a horizontal/vertical gap.
   gbox.addFont({id: "small", image: "font", firstletter: " ", tileh: 8, tilew: 8, tilerow: 255, gapx: 0, gapy: 0});
@@ -80,7 +87,7 @@ gbox.onLoad(function () {
   		{name:"eatghost", src:(audioserver + "laser" + filetype), instances:1},
   		{name:"powerpill", src:(audioserver + "powerup3" + filetype), instances:1},
   		{name:"die", src:(audioserver + "die" + filetype), instances:1},
-  		{name:"music", src:(audioserver + "capman-ingame" + filetype), instances:1}]);  		
+  		{name:"music", src:(audioserver + "mongoman-ingame" + filetype), instances:1}]);  		
 }, false);
 
 // Start game function
