@@ -100,7 +100,7 @@ var createPlayerGhost = function() {
 
 					if(this.toucheddown) {
 						this.tileset = this.id;
-						toys.topview.setStaticSpeed(this, 2)
+						toys.topview.setStaticSpeed(this, 4)
 						this.time = 75;
 						this.status = "chasing";
 					}
