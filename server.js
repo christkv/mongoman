@@ -151,7 +151,7 @@ if(cluster.isMaster) {
         }
         
         // if localhost add user
-        if(dbHost.toLowerCase() == 'localhost') {
+        if(dbHost.toLowerCase() == 'localhost' || dbHost.toLowerCase() == '127.0.0.1') {
           db.admin().addUser(dbUser, dbPassword, function(err, result) {
             db.admin().authenticate(dbUser, dbPassword, callback);
           })
