@@ -150,7 +150,14 @@ if(cluster.isMaster) {
           throw err;
         }
         
-        db.admin().authenticate(dbUser, dbPassword, callback);
+        // if localhost add user
+        if(dbHost.toLowerCase() == 'localhost') {
+          db.admin().addUser(dbUser, dbPassword, function(err, result) {
+            db.admin().authenticate(dbUser, dbPassword, callback);
+          })
+        } else {
+          db.admin().authenticate(dbUser, dbPassword, callback);          
+        }
       }); },
       function(callback) { db.dropCollection('game', function() { callback(null, null); }); },
       function(callback) { db.dropCollection('board', function() { callback(null, null); }); },

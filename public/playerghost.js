@@ -119,13 +119,23 @@ var createPlayerGhost = function() {
     			// Dont't transmit collisions
     			var collision = false;
     			// If we have a collision
-    			if(this.status == 'chasing' && this.touchedup) {
-    			  this.status="chasing";
-    			} else if(this.touchedup||this.toucheddown||this.touchedleft||this.touchedright) {
+          if(this.touchedup||this.toucheddown||this.touchedleft||this.touchedright) {
     				help.copyModel(this, olddata); 
     				toys.topview.applyForces(this); 
     				toys.topview.tileCollision(this, maze, "map", null, {tolerance:0,approximation:1});
     				collision = true;
+    			} else {
+            if(!collision && olddata.x != this.x || olddata.y != this.y 
+              || olddata.accx != this.accx || olddata.accy != this.accy
+              || olddata.xpushing != this.xpushing || olddata.ypushing != this.ypushing
+              || olddata.facing != this.facing) {
+
+              // Build the object and send it to the server serialized
+              updateObject = {x:this.x, y:this.y, accx:this.accx, accy:this.accy,
+                xpushing:this.xpushing, ypushing:this.ypushing, facing:this.facing};
+            } else {
+              updateObject = null;
+            }    			  
     			}
 
     			// The side warp. If capman reach one of the left or right side of the maze, is spawn on the other side,in the same direction
@@ -137,18 +147,6 @@ var createPlayerGhost = function() {
 			
     			// setFrame sets the right frame checking the facing and the defined animations in "initialize"
     			toys.topview.setFrame(this); 
-
-          if(!collision && olddata.x != this.x || olddata.y != this.y 
-            || olddata.accx != this.accx || olddata.accy != this.accy
-            || olddata.xpushing != this.xpushing || olddata.ypushing != this.ypushing
-            || olddata.facing != this.facing) {
-          
-            // Build the object and send it to the server serialized
-            updateObject = {x:this.x, y:this.y, accx:this.accx, accy:this.accy,
-              xpushing:this.xpushing, ypushing:this.ypushing, facing:this.facing};
-          } else {
-            updateObject = null;
-          }
         }
   		}
   	},
