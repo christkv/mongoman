@@ -263,6 +263,8 @@ if(cluster.isMaster) {
                 updateMongomanWinStats(state, self, messageObject, sessionId);
                 // Signal mongoman won
                 mongomanWon(state, self);
+                // Kill the board so we can start again
+                killBoard(state, self);
               } else if(messageObject['type'] == 'ghostdead') {
                 // Update player stats
                 updateGhostDeadStats(state, self, sessionId);
