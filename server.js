@@ -46,7 +46,9 @@ var state = {
 
   // Connections by board id
   connectionsByBoardId: {},
-  boardIdByConnections: {}
+  boardIdByConnections: {},
+  // Game states
+  gameStatesByBoardId: {}
 }
 
 // Create a server instance
@@ -235,6 +237,8 @@ if(cluster.isMaster) {
 
           // Handle incoming messages
           connection.on('message', function(message) {
+            // console.log("================================= message")
+            // console.dir(message)
             // All basic communication messages are handled as JSON objects
             // That includes the request for status of the board.
             var self = this;
@@ -270,27 +274,95 @@ if(cluster.isMaster) {
                 updateGhostDeadStats(state, self, sessionId);
                 // Signal ghost is dead
                 ghostDead(state, self, messageObject);
-              }
-            } else if(message.type == 'binary') {
-              // Binary message update player position
-              state.gameCollection.update({id: self.connectionId}, message.binaryData);
-              // Let's grab the record
-              state.gameCollection.findOne({id: self.connectionId, state:'n'}, {raw:true}, function(err, rawDoc) {
-                if(rawDoc) {
-                  // Retrieve the board by id from cache
-                  var boardId = state.boardIdByConnections[self.connectionId];                
-                  var board = state.connectionsByBoardId[boardId];                
-                  // If we have a board send the messages
-                  if(board) {
-                    // Send the data to all the connections expect the originating connection
-                    for(var i = 0; i < board.length; i++) {
-                      if(board[i] != self.connectionId) {
-                        if(state.connections[board[i]] != null) state.connections[board[i]].sendBytes(rawDoc);
-                      } 
-                    }                                  
+              } else if(messageObject['type'] == 'powerpill') {
+                // console.log("================================================ powerpill :: " + messageObject['value'])
+
+                // Retrieve the board by id from cache
+                var boardId = state.boardIdByConnections[self.connectionId];                
+                // Retrieve the game stats for the board
+                var gameState = state.gameStatesByBoardId[boardId];
+                if(gameState == null) {
+                  state.gameStatesByBoardId[boardId] = {};
+                  gameState = state.gameStatesByBoardId[boardId];
+                }                 
+
+                // If we have game stats update them
+                if(gameState) {
+                  gameState[self.connectionId]['powerpill'] = messageObject['value'];
+                }
+
+                // console.log("====================================================== self :: " + self.connectionId)
+                var keys = Object.keys(gameState);
+                // validate if we have a collision
+                for(var i = 0; i < keys.length; i++) {
+                  var key = keys[i];
+                  // console.log("====================================================== send on :: " + key)
+                  
+                  // If it's not the originator send the powerpill in play
+                  if(key != self.connectionId) {
+                    state.connections[key].sendUTF(JSON.stringify({state:'powerpill', value:messageObject['value']}));                    
                   }
-                }            
-              });
+                }                  
+              } else if(messageObject['type'] == 'movement') {
+                // console.log("================================================ movement")
+                // console.dir(messageObject)
+
+                // Unpack object
+                var position = messageObject['object'];
+                var mongoman = messageObject['mongoman'];
+
+                // Retrieve the board by id from cache
+                var boardId = state.boardIdByConnections[self.connectionId];                
+                // Retrieve the game stats for the board
+                var gameState = state.gameStatesByBoardId[boardId];
+                if(gameState == null) {
+                  state.gameStatesByBoardId[boardId] = {};
+                  gameState = state.gameStatesByBoardId[boardId];
+                } 
+                       
+                // If we have game stats update them
+                if(gameState) {
+                  gameState[self.connectionId] = {mongoman: mongoman, pos: position};
+                }
+                
+                var keys = Object.keys(gameState);
+                // validate if we have a collision
+                for(var i = 0; i < keys.length; i++) {
+                  var key = keys[i];
+                  
+                  if(key != self.connectionId) {
+                    // Get the position
+                    var _position = gameState[key].pos;
+                    // Let's check if we have a collision
+                    if(_position.x < (position.x + 5) && _position.x > (position.x - 5) &&
+                      _position.y < (position.y + 5) && _position.y > (position.y - 5)) {
+                        console.log("======================================= collision")
+                    } else {
+                      // console.log("======================================= no collision")
+                    }                      
+                  }
+                }                  
+              }
+            // } else if(message.type == 'binary') {
+            //   // Binary message update player position
+            //   state.gameCollection.update({id: self.connectionId}, message.binaryData);
+            //   // Let's grab the record
+            //   state.gameCollection.findOne({id: self.connectionId, state:'n'}, function(err, doc) {
+            //     if(doc) {
+            //       // Retrieve the board by id from cache
+            //       var boardId = state.boardIdByConnections[self.connectionId];                
+            //       var board = state.connectionsByBoardId[boardId];                
+            //       // If we have a board send the messages
+            //       if(board) {
+            //         // Send the data to all the connections expect the originating connection
+            //         for(var i = 0; i < board.length; i++) {
+            //           if(board[i] != self.connectionId) {
+            //             if(state.connections[board[i]] != null) state.connections[board[i]].sendUTF(JSON.stringify(doc));
+            //           } 
+            //         }                                  
+            //       }
+            //     }            
+            //   });
             }
           });  
         });      
@@ -455,10 +527,10 @@ var initializeBoard = function(_state, session, connection) {
       // There is a board, we are a ghost, message the user that we are ready and also send the state of the board
       connection.sendUTF(JSON.stringify({state:'initialize', isMongoman:false, name:session['name']}));
       // Find all board positions and send
-      _state.gameCollection.find({b:board._id}, {raw:true}).toArray(function(err, docs) {
+      _state.gameCollection.find({b:board._id}).toArray(function(err, docs) {
         if(!err) {
           for(var i = 0; i < docs.length; i++) {
-            connection.sendBytes(docs[i]);
+            connection.sendUTF(JSON.stringify(docs[i]));
           }
         }
       });

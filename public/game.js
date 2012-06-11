@@ -182,6 +182,21 @@ var go = function() {
         maingame.hud.setWidget("score",{widget:"label",font:"small",value:0, dx:240, dy:25, clear:true});
         // Let's add the object that will draw the maze
         gbox.addObject(drawMaze);
+      } else if(message['state'] == 'powerpill') {
+        // console.log("======================================================= powerpill");
+        
+        // Set all the ghosts as eatable including the player
+        if(message['value'] == true && !isMongoman) {
+          // Set the players ghost as eatable
+        	gbox.getObject("player", "playerghost").makeeatable();
+        }
+        
+        // Set up all the remote ghosts
+        var keys = Object.keys(currentGhosts);
+        // For each ghost set them to eatable
+        for(var i = 0; i < keys.length; i++) {
+          currentGhosts[keys[i]].makeeatable();
+        }
       } else if(message['state'] == 'dead') {
         // Fetch the active mongoman
         var mongoman = isMongoman ? gbox.getObject("player", "mongoman") : gbox.getObject("ghosts", "mongoman");
@@ -303,10 +318,11 @@ var go = function() {
     if(this.bullettimer > 0) this.bullettimer--;
     // If the user changed course send an update to the server
     if(updateObject != null) {
-      // Serialize the update state and send to server
-      var data = BSON.serialize({'$set': {'pos': updateObject}}, false, true, false)
-      // Send object
-      client.dispatchCommand(data.buffer);
+      // // Serialize the update state and send to server
+      // var data = BSON.serialize({'$set': {'pos': updateObject}}, false, true, false)
+      // // Send object
+      // client.dispatchCommand(data.buffer);
+      client.dispatchCommand({type:'movement', mongoman:isMongoman, object:updateObject});
     }
     
     // 

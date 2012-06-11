@@ -8,6 +8,7 @@ var createPlayerMongoman = function() {
   	tileset:"mongoman",
   	killed:false,
   	scorecombo:1,
+  	time:-1,	  
 		
   	initialize: function() {
       // Sets up the objects, properties on our 2D map
@@ -47,6 +48,15 @@ var createPlayerMongoman = function() {
 
   			// Handle collisions with the map, accuracy and tolerance controls how precise the collision detection is			
   			toys.topview.tileCollision(this, maze, "map", null, {tolerance: 0, approximation: 1});
+
+    		// The nuber of ticks the ghost i in danger
+    		if(this.time > 0) {
+    		  this.time--;
+    		} else if(this.time == 0) {
+          // Fire eat a powerpill message
+    	    client.dispatchCommand({type:'powerpill', value:false});
+    		  this.time = -1;
+    		}
   						
   			// If we have a collision
   			if(this.touchedup || this.toucheddown || this.touchedleft || this.touchedright) {  			  
@@ -94,6 +104,11 @@ var createPlayerMongoman = function() {
             if(gbox.getObject("ghosts","ghost3")) gbox.getObject("ghosts","ghost3").makeeatable();
             if(gbox.getObject("ghosts","ghost4")) gbox.getObject("ghosts","ghost4").makeeatable();
             if(gbox.getObject("player", "playerghost")) gbox.getObject("player","playerghost").makeeatable();
+            
+            // Fire eat a powerpill message
+      	    client.dispatchCommand({type:'powerpill', value:true});
+      	    // Set count down time
+      	    this.time = 150;
           } else {
             if(sound) SoundJS.play("eat");
 						maingame.hud.addValue("score","value",10); 
