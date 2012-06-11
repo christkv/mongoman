@@ -131,8 +131,8 @@ var createPlayerMongoman = function() {
   	// And now, a custom method. This one will kill the player and will be called by ghosts, when colliding with capman.
   	kill:function() {
   	  if(!this.killed) {
-  	    // Fire off I'm dead message
-  	    client.dispatchCommand({type:'dead', score:maingame.hud.getNumberValue("score","value")});
+        // // Fire off I'm dead message
+        // client.dispatchCommand({type:'dead', score:maingame.hud.getNumberValue("score","value")});
   	    // Animate death
     		this.killed = true; 
     		if(sound) SoundJS.play("die"); 

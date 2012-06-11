@@ -296,9 +296,9 @@ if(cluster.isMaster) {
                 // validate if we have a collision
                 for(var i = 0; i < keys.length; i++) {
                   var key = keys[i];
-                  // console.log("====================================================== send on :: " + key)
+                  console.log("====================================================== send on :: " + key)
                   
-                  // If it's not the originator send the powerpill in play
+                  // If it's not the originator set the powerpill in play
                   if(key != self.connectionId) {
                     state.connections[key].sendUTF(JSON.stringify({state:'powerpill', value:messageObject['value']}));                    
                   }
@@ -313,18 +313,48 @@ if(cluster.isMaster) {
 
                 // Retrieve the board by id from cache
                 var boardId = state.boardIdByConnections[self.connectionId];                
+                // Get the connectionid list
+                var connectionIds = state.connectionsByBoardId[boardId];
                 // Retrieve the game stats for the board
                 var gameState = state.gameStatesByBoardId[boardId];
                 if(gameState == null) {
                   state.gameStatesByBoardId[boardId] = {};
                   gameState = state.gameStatesByBoardId[boardId];
                 } 
+                
+                // Fire the move command to all boards to animate the ghosts
+                for(var i = 0; i < connectionIds.length; i++) {
+                  // Fire off message to all the other players
+                  if(self.connectionId != connectionIds[i]) {
+                    var role = mongoman ? "m" : "g";
+                    // Mongoman or ghost
+                    state.connections[connectionIds[i]].sendUTF(JSON.stringify({
+                        id: connectionIds[i], b: boardId,
+                        role: role, state: 'n',
+                        pos: {
+                          x: position.x, y: position.y,
+                          accx: position.accx, accy: position.accy,
+                          facing: position.facing,
+                          xpushing: position.xpushing, ypushing: position.ypushing
+                        }
+                      }));
+                  }
+                }
                        
                 // If we have game stats update them
                 if(gameState) {
-                  gameState[self.connectionId] = {mongoman: mongoman, pos: position};
+                  if(gameState[self.connectionId] == null) {
+                    gameState[self.connectionId] = {mongoman: mongoman, pos: position, dead: false, powerpill:false};
+                  } else{
+                    gameState[self.connectionId] = {mongoman: mongoman, pos: position, dead: gameState[self.connectionId]["dead"], powerpill:gameState[self.connectionId]["powerpill"]};
+                  }
                 }
                 
+                // Don't respond if the game is over
+                if(gameState[self.connectionId].dead) return;
+                // Fetch the power pill state for this connection
+                var powerpill = gameState[self.connectionId].powerpill;
+                // Iterate over all the users
                 var keys = Object.keys(gameState);
                 // validate if we have a collision
                 for(var i = 0; i < keys.length; i++) {
@@ -332,13 +362,54 @@ if(cluster.isMaster) {
                   
                   if(key != self.connectionId) {
                     // Get the position
-                    var _position = gameState[key].pos;
-                    // Let's check if we have a collision
+                    var _player = gameState[key];
+                    var _powerpill = _player.powerpill;
+                    var _mongoman = _player.mongoman;
+                    var _position = _player.pos;
+                    // If we have collision and either the current player or the other player is a ghost
                     if(_position.x < (position.x + 5) && _position.x > (position.x - 5) &&
-                      _position.y < (position.y + 5) && _position.y > (position.y - 5)) {
-                        console.log("======================================= collision")
-                    } else {
-                      // console.log("======================================= no collision")
+                      _position.y < (position.y + 5) && _position.y > (position.y - 5) &&
+                      (mongoman == true || _mongoman == true)) {
+                        
+                      // console.log("+++++++++++++++++++++++++++++++++++++++++++++++++++++ collision")
+                      // console.dir(gameState[self.connectionId])
+                      // console.dir(gameState[key])
+                      // console.dir(powerpill)
+                      // console.dir(_powerpill)
+                        
+                      // Check if we have a powerpill situation and kill ghost if we do
+                      if(_powerpill == true || powerpill == true) {
+                        console.log("======================================= collision powerpill")
+                        
+                        // Return if this user is dead
+                        if(_player['dead']) return;
+                        // Set player dead
+                        _player['dead'] = true;
+
+                        // Message all players that we are dead
+                        for(var j = 0; j < connectionIds.length; j++) {
+                          // if(connectionIds[j] == key) {
+                          //   state.connections[connectionIds[j]].sendUTF(JSON.stringify({state:'dead'}));
+                          // } else {
+                            state.connections[connectionIds[j]].sendUTF(JSON.stringify({state:'ghostdead', id:self.connectionId}));
+                          // }
+                        }
+                        
+                        return;
+                      } else {                          
+                        console.log("======================================= collision no powerpill")                          
+                        // Set all items to dead
+                        for(var j = 0; j < keys.length; j++) {
+                          gameState[keys[j]].dead = true;
+                        }   
+
+                        // Set current connection dead
+                        gameState[self.connectionId].dead = true;
+                        // Kill the board
+                        killBoard(state, self);
+                        // Short cut the method
+                        return;                       
+                      }
                     }                      
                   }
                 }                  
@@ -542,6 +613,10 @@ var initializeBoard = function(_state, session, connection) {
  * Remove the connection from our connection cache
  **/
 var cleanUpConnection = function(_state, connection) {
+  // console.log("======================================================================== cleanUpConnection")
+  // console.dir(connection)
+  // console.dir(_state)
+  // 
   _state.gameCollection.findOne({id:connection.connectionId, role:'m', state:'n'}, function(err, result) {
     // Mongoman quit, signal game over to every ghost and clean up
     if(result) {
