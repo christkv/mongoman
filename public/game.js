@@ -172,12 +172,8 @@ var go = function() {
     // When the web socket connects
     //
     var onMessageCallback = function(message) {
-      console.log("=========================================================== message")
-      console.log(message)
       // JSON message
       if(message['state'] == 'initialize') {
-        console.log("======================================================= initialize");
-        // console.log(message)
         isMongoman = message['isMongoman'];
         playerName = message['name'];
         // Set up the name
@@ -187,8 +183,6 @@ var go = function() {
         // Let's add the object that will draw the maze
         gbox.addObject(drawMaze);
       } else if(message['state'] == 'powerpill') {
-        console.log("======================================================= powerpill");
-        
         // Set all the ghosts as eatable including the player
         if(message['value'] == true && !isMongoman) {
           // Set the players ghost as eatable
@@ -204,7 +198,6 @@ var go = function() {
           }
         }
       } else if(message['state'] == 'dead') {
-        console.log("======================================================= dead");
         // Fetch the active mongoman
         var mongoman = isMongoman ? gbox.getObject("player", "mongoman") : gbox.getObject("ghosts", "mongoman");
         if(mongoman) {
@@ -236,26 +229,19 @@ var go = function() {
         client.connect(function() {
           // Dispatch a message asking to intialize the connection
           client.dispatchCommand({type:'initialize'});    
-        });                          
+        });        
       } else if(message['state'] == 'ghostdead') {
-        console.log("======================================================= ghostdead");
         // if(sound) gbox.hitAudio("eatghost");
         if(sound) SoundJS.play('eatghost');
         // Check if it's a remote ghost and if it is kill it
         if(currentGhosts[message['id']] != null) {
-          console.log("======================================================= ghostdead :: 0");
           currentGhosts[message['id']].kill();
           return;
         }
         
         // Not in the ghosts list, then it's us
-        var playerGhost = gbox.getObject("player", "playerghost");
-        // if(playerGhost != null && playerGhost.killed) {
-          console.log("======================================================= ghostdead :: 1");
-          playerGhost.kill();
-        // }
+        gbox.getObject("player", "playerghost").kill();
       } else if(message['state'] == "mongowin") {
-        console.log("======================================================= mongowin");
     		// Destroy groups
     		gbox.clearGroup("ghosts");
     		gbox.clearGroup("player");
@@ -280,7 +266,6 @@ var go = function() {
           client.dispatchCommand({type:'initialize'});    
         });                  
       } else if(message['b'] != null) {
-        console.log("======================================================= binary");        
         // Check if we have a ghost for this user and add one if there is none
         if(currentGhosts[message.id] == null) {
           newObjects.push(message);

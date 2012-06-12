@@ -50,7 +50,7 @@ var createPlayerGhost = function() {
             mongoman.x <= rightBorder &&
             mongoman.y >= topBorder &&
             mongoman.y <= bottomBorder) {
-              mongoman.render = true;
+            mongoman.render = true;
   		    } else {
   		      mongoman.render = false;
   		    }
@@ -73,9 +73,9 @@ var createPlayerGhost = function() {
         if(this.status == 'eaten') {
 					toys.topview.setStaticSpeed(this, 4); // We're in a hurry now!
 					
-					if((this.x == maze.hw - this.hw) && (this.y == maze.hh - 38))
+					if((this.x == maze.hw - this.hw) && (this.y == maze.hh - 38)) {
 						this.status = "goin";
-					else {
+					} else {
 						if((this.facing == toys.FACE_UP) || (this.facing == toys.FACE_DOWN)) {
 							if(maze.hw - this.hw > this.x) {
 							  toys.topview.controlKeys(this,{pressright: 1});
@@ -182,7 +182,6 @@ var createPlayerGhost = function() {
 	
   	// And now, a custom method. This one will kill the player and will be called by ghosts, when colliding with capman.
   	kill:function() {
-  	  console.log("========================================== ghost eaten")
       if(sound) SoundJS.play("die");
   	  // Set status to eaten
   	  this.status = 'eaten';
