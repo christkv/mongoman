@@ -12,7 +12,8 @@ var currentGhosts = {};
 var newObjects = [];
 var remotePlayerPositionUpdates = {};
 var remotePlayersInformationById = {};
-var sound = false;
+// Enable disable sound
+var sound = true;
 
 // User states
 var isMongoman = false;

@@ -32,7 +32,7 @@ if(cluster.isMaster) {
 // Set up server for mongo
 var db = new Db('game', new Server(dbHost, dbPort));
 var numCPUs = require('os').cpus().length;
-var numCPUs = 1;
+var numCPUs = 2;
 var gameCollection = null;
 var boardCollection = null;
 
