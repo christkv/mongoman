@@ -173,6 +173,9 @@ var go = function() {
     // When the web socket connects
     //
     var onMessageCallback = function(message) {
+      console.log("==============================================================")
+      console.log(message)
+      
       // JSON message
       if(message['state'] == 'initialize') {
         isMongoman = message['isMongoman'];

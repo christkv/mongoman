@@ -103,6 +103,7 @@ app.post('/game', function(req, res) {
         }
       });
     }    
+    
     // Update session relationship between id and player
     state.sessionsCollection.update({id:sessionId}, {$set:{name:name, id:sessionId, b:new ObjectID()}}, {upsert:true});
     // Redirect to the game
@@ -527,6 +528,9 @@ var killBoard = function(_state, connection, removeConnection) {
  * for this process with less than 5 players add ourselves to it
  **/
 var initializeBoard = function(_state, session, connection) {
+  console.log("================================================= board")
+  console.dir(session)
+  
   // Locate any boards with open spaces and add ourselves to it
   // using findAndModify to ensure we are the only one changing the board
   _state.boardCollection.findAndModify({number_of_players: {$lt:5}, pid: process.pid}, [], {
