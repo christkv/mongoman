@@ -4,6 +4,7 @@ var createRemoteGhostPlayer = function(data) {
   	id:"ghost"+data.id,
   	group:"ghosts",  	
   	tileset:data.tileset,
+  	original_tilset:data.tileset,
   	status: 'chasing',
   	time: 0,
 
@@ -46,10 +47,10 @@ var createRemoteGhostPlayer = function(data) {
     		  if(this.time > 50) {
     		    this.tileset = 'ghostscared'
     		  } else {
-    		    this.tileset = Math.floor(this.time/4)%2 == 0 ? "ghostscared" : "playerghost";
+    		    this.tileset = Math.floor(this.time/4)%2 == 0 ? "ghostscared" : this.original_tilset;
     		  }
     		} else if(this.status == 'running') {
-    	    this.tileset = 'playerghost'
+    	    this.tileset = this.original_tilset;
     	    this.status = 'chasing';		  
 					// Up the combo
 					mongoman.scorecombo = 1;
@@ -85,7 +86,7 @@ var createRemoteGhostPlayer = function(data) {
 					toys.topview.tileCollision(this,maze, "map", null, {tolerance:0, approximation:1});
 
 					if(this.toucheddown) {
-						this.tileset = this.id;
+						this.tileset = this.original_tilset;
 						toys.topview.setStaticSpeed(this, 2)
 						this.time = 75;
 						this.status = "chasing";
@@ -125,31 +126,6 @@ var createRemoteGhostPlayer = function(data) {
 
     			// setFrame sets the right frame checking the facing and the defined animations in "initialize"
     			toys.topview.setFrame(this); 
-
-              //           // Check if we have a collision
-              //           if(isMongoman && mongoman != null && gbox.collides(this, mongoman, 2)) {         
-              //             // If we are chasing him he is dead
-              //             if(this.status == "chasing") {
-              //               // Stop the game for a time
-              //               maingame.bullettimer = 10;
-              //               // kill mongoman
-              //               mongoman.kill();
-              //             } else if(this.status == "running") {
-              //               // We get a score combo bonus for eating ghosts
-              // maingame.hud.addValue("score","value",mongoman.scorecombo * 100);
-              // // Up the combo
-              // mongoman.scorecombo++;
-              //               // Signal eaten a ghost
-              //               if(sound) SoundJS.play("eatghost");              
-              //               // Fire off I'm dead message
-              //              client.dispatchCommand({type:'ghostdead', id:this.conId});
-              //               // gbox.hitAudio("eatghost");
-              //              maingame.bullettimer = 10;
-              //              toys.generate.sparks.popupText(mongoman,"sparks",null,{font:"small",jump:5,text:'',keep:20});
-              //              this.tileset = "ghosteaten";
-              //              this.status = "eaten";
-              //             }
-              //           }        
     		}          
       }
   	},

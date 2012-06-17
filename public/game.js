@@ -187,16 +187,18 @@ var go = function() {
         if(message['value'] == true && !isMongoman) {
           // Set the players ghost as eatable
         	gbox.getObject("player", "playerghost").makeeatable();
-        }
-        
-        // Set up all the remote ghosts
-        var keys = Object.keys(currentGhosts);
-        // For each ghost set them to eatable
-        for(var i = 0; i < keys.length; i++) {
-          if(currentGhosts[keys[i]] && currentGhosts[keys[i]].makeeatable) {
-            currentGhosts[keys[i]].makeeatable();            
+
+          // Set up all the remote ghosts
+          var keys = Object.keys(currentGhosts);
+          // For each ghost set them to eatable
+          for(var i = 0; i < keys.length; i++) {
+            if(currentGhosts[keys[i]] && currentGhosts[keys[i]].makeeatable) {
+              currentGhosts[keys[i]].makeeatable();            
+            }
           }
-        }
+        } else {
+          
+        }      
       } else if(message['state'] == 'dead') {
         // Fetch the active mongoman
         var mongoman = isMongoman ? gbox.getObject("player", "mongoman") : gbox.getObject("ghosts", "mongoman");
