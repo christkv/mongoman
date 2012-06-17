@@ -16,6 +16,7 @@ var express = require('express'),
 var connectionIdCounter = 0;
 // Setup of ports etc
 var port = process.env['APP_PORT'] ? process.env['APP_PORT'] : 3000;
+var host = process.env['APP_HOST'] ? process.env['APP_HOST'] : 'localhost';
 // Environment parameters for db
 var dbHost = process.env['DB_HOST'] ? process.env['DB_HOST'] : 'localhost';
 var dbPort = process.env['DB_PORT'] ? process.env['DB_PORT'] : 27017;
@@ -24,6 +25,7 @@ var dbPassword = process.env['DB_PASSWORD'] ? process.env['DB_PASSWORD'] : 'admi
 
 if(cluster.isMaster) {
   console.log("--------------------------------------------------- start application with")
+  console.log("app host = " + host)
   console.log("app port = " + port)
   console.log("db host = " + dbHost)
   console.log("db port = " + dbPort)
@@ -205,7 +207,7 @@ if(cluster.isMaster) {
       }
       if(!result) throw new Error("failed to authenticate with user = " + user);
       
-      app.listen(port, function(err) {
+      app.listen(port, host, function(err) {
         if(err) throw err;
 
         // Assign the collections
