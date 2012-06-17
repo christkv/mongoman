@@ -32,7 +32,7 @@ if(cluster.isMaster) {
   console.log("db user = " + dbUser)  
 }
 // Set up server for mongo
-var db = new Db('game', new Server(dbHost, dbPort));
+var db = new Db('game', new Server(dbHost, dbPort), {poolSize:50, native_parser:true});
 var numCPUs = require('os').cpus().length;
 var numCPUs = 2;
 var gameCollection = null;

@@ -1,0 +1,1 @@
+node --nouse_idle_notification --expose_gc --max_old_space_size=32768 server.js ./server.js
