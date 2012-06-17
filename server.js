@@ -172,7 +172,7 @@ if(cluster.isMaster) {
       function(callback) { db.dropCollection('sessions', function() { callback(null, null); }); },
       function(callback) { db.createCollection('game', {capped:true, size:100000, safe:true}, callback); },    
       function(callback) { db.createCollection('board', {capped:true, size:100000, safe:true}, callback); },    
-      function(callback) { db.createCollection('sessions', {capped:true, size:100000, safe:true}, callback); },    
+      function(callback) { db.createCollection('sessions', {safe:true}, callback); },    
       function(callback) { db.ensureIndex('board', {number_of_players:1}, callback); },    
       function(callback) { db.ensureIndex('game', {'id':1}, callback); },    
       function(callback) { db.ensureIndex('game', {'b':1}, callback); },          
