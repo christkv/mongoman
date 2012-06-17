@@ -7,6 +7,9 @@ var GameCommunication = function(url, channel, callback) {
 
 // Handle the setup of the connection
 GameCommunication.prototype.connect = function(callback) {
+  console.log("=========================================================")
+  console.log(url)
+  
   var url = "ws://" + this.url.substr(7).split('/')[0];
   // Create a websocket either using the Mozilla web socket or the
   // standard one
