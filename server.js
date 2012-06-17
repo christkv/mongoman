@@ -69,10 +69,10 @@ app.configure(function() {
 // Provide the bootstrap file
 app.post('/game', function(req, res) {
   // Unpack params
-  var name = req.param('name');
+  var name = req.param('name');  
   // Hash password
   var sha1password = crypto.createHash('sha1').update(req.param('password')).digest('hex');
-
+  
   //
   // Need to do manual session handling as websocket does not correctly work with
   // Express cookie pipeline
@@ -105,20 +105,29 @@ app.post('/game', function(req, res) {
         }
       });
     }    
-    
-    // Remove existing session if any
-    state.sessionsCollection.remove({name:name}, {safe:true}, function(err, result) {
-      // Update session relationship between id and player
-      state.sessionsCollection.update({id:sessionId}, {$set:{name:name, id:sessionId, b:new ObjectID()}}, {upsert:true});
-      // Redirect to the game
-      res.redirect('/start');    
-    });
+
+    // Set session
+    req.session['name'] = name;
+    // Redirect to the game
+    res.redirect('/start');    	    
   })
 });
 
 app.get('/start', function(req, res) {
-  // Render the game
-  res.render('index', { layout: false });  
+  // Parse the cookie
+  var cookie = connectUtils.parseCookie(req.headers['cookie']);
+  // Grab the session id
+  var sessionId = cookie['connect.sid'];
+  var name = req.session['name'];
+  
+  // Remove existing session if any
+  state.sessionsCollection.remove({name:name}, {safe:true}, function(err, result) {
+	  // Insert the new session
+	  state.sessionsCollection.insert({id:sessionId, name:name, b:new ObjectID()}, {safe:true}, function(err, result) {
+      // Redirect to the game
+      res.render('index', { layout: false });  
+	  });
+  });
 });
 
 app.get('/delete', function(req, res) {
@@ -141,6 +150,8 @@ app.get('/highscore', function(req, res) {
 //  Handles user name setup
 //
 app.get('/', function(req, res) {
+  // Destroy cookie
+  req.session.destroy();
   // Render the first screen
   res.render('signin', { layout: false })
 })
@@ -254,6 +265,7 @@ if(cluster.isMaster) {
               var cookie = connectUtils.parseCookie(request.httpRequest.headers['cookie']);
               // Grab the session id
               var sessionId = cookie['connect.sid'];
+              
               // If initializing the game
               if(messageObject['type'] == 'initialize') {    
                 // Grab the username based on the session id and initialize the board
@@ -533,9 +545,6 @@ var killBoard = function(_state, connection, removeConnection) {
  * for this process with less than 5 players add ourselves to it
  **/
 var initializeBoard = function(_state, session, connection) {
-  console.log("================================================= board")
-  console.dir(session)
-  
   // Locate any boards with open spaces and add ourselves to it
   // using findAndModify to ensure we are the only one changing the board
   _state.boardCollection.findAndModify({number_of_players: {$lt:5}, pid: process.pid}, [], {
