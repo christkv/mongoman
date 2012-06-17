@@ -106,10 +106,13 @@ app.post('/game', function(req, res) {
       });
     }    
     
-    // Update session relationship between id and player
-    state.sessionsCollection.update({id:sessionId}, {$set:{name:name, id:sessionId, b:new ObjectID()}}, {upsert:true});
-    // Redirect to the game
-    res.redirect('/start')
+    // Remove existing session if any
+    state.sessionsCollection.remove({name:name}, {safe:true}, function(err, result) {
+      // Update session relationship between id and player
+      state.sessionsCollection.update({id:sessionId}, {$set:{name:name, id:sessionId, b:new ObjectID()}}, {upsert:true});
+      // Redirect to the game
+      res.redirect('/start');    
+    });
   })
 });
 
