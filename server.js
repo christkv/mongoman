@@ -71,18 +71,11 @@ app.post('/game', function(req, res) {
   // Unpack params
   var name = req.param('name');  
   // Hash password
-  var sha1password = crypto.createHash('sha1').update(req.param('password')).digest('hex');
-  
-  //
-  // Need to do manual session handling as websocket does not correctly work with
-  // Express cookie pipeline
-  //
-  // Parse the cookie
-  var cookie = connectUtils.parseCookie(req.headers['cookie']);
-  // Grab the session id
-  var sessionId = cookie['connect.sid'];
+  var sha1password = crypto.createHash('sha1').update(req.param('password')).digest('hex');  
   // Fetch the player collection
   var players = db.collection('players');
+  // Set a cookie with the name
+  res.cookie("_mongoman_name", name, {maxAge:3600000, path:'/'});
   // Check if the player name is taken
   players.findOne({name:name, password:sha1password}, function(err, doc) {
     if(!doc) {      
@@ -114,6 +107,10 @@ app.post('/game', function(req, res) {
 });
 
 app.get('/start', function(req, res) {
+  //
+  // Need to do manual session handling as websocket does not correctly work with
+  // Express cookie pipeline
+  //
   // Parse the cookie
   var cookie = connectUtils.parseCookie(req.headers['cookie']);
   // Grab the session id
@@ -122,11 +119,8 @@ app.get('/start', function(req, res) {
   
   // Remove existing session if any
   state.sessionsCollection.remove({name:name}, {safe:true}, function(err, result) {
-	  // Insert the new session
-	  state.sessionsCollection.insert({id:sessionId, name:name, b:new ObjectID()}, {safe:true}, function(err, result) {
-      // Redirect to the game
-      res.render('index', { layout: false });  
-	  });
+    // Redirect to the game
+    res.render('index', { layout: false });  
   });
 });
 
@@ -240,6 +234,13 @@ if(cluster.isMaster) {
 
         // A new connection from a player
         wsServer.on('request', function(request) {
+          // Parse the cookie and grab session id and player name
+          var cookie = connectUtils.parseCookie(request.httpRequest.headers['cookie']);          
+          var sessionId = cookie['connect.sid'];
+          var playerName = cookie['_mongoman_name'];
+          // Perfor an upsert to insert a new session
+          state.sessionsCollection.update({name:playerName}, {$set: {id: sessionId, name:playerName, b:new ObjectID()}}, {upsert:true});
+                    
           // Accept the connection
           var connection = request.accept('game', request.origin);
           // Add a connection counter id
