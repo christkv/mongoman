@@ -13,8 +13,8 @@
   "dependencies": {
     "websocket" : "1.0.4",
     "mongodb" : "1.1.0-beta",
-    "express" : "2.5.8",
-    "connect": "2.0.0",
+    "express" : "2.5.10",
+    "connect": "2.3.4",
     "ejs" : "0.6.1",
     "async" : "0.1.18"
   },

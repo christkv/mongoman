@@ -2,15 +2,14 @@
 var express = require('express'),
   mongo = require('mongodb'),
   crypto = require('crypto'),
-  BSON = mongo.BSONPure.BSON,
   Db = mongo.Db,
   Server = mongo.Server,
   ObjectID = mongo.ObjectID,
+  StatCollector = require('./lib/stat_collector').StatCollector,
   async = require('async'),
   format = require('util').format,
   cluster = require('cluster'),
-  WebSocketServer = require('websocket').server,
-  connectUtils = require('connect').utils;
+  WebSocketServer = require('websocket').server;
   
 // Setup for the connection id
 var connectionIdCounter = 0;
@@ -31,6 +30,7 @@ if(cluster.isMaster) {
   console.log("db port = " + dbPort)
   console.log("db user = " + dbUser)  
 }
+
 // Set up server for mongo
 var db = new Db('game', new Server(dbHost, dbPort), {poolSize:50, native_parser:true});
 var numCPUs = require('os').cpus().length;
@@ -38,7 +38,12 @@ var numCPUs = 2;
 var gameCollection = null;
 var boardCollection = null;
 
-// Contains the game state variables
+// Collects the stats for the connection
+var statCollector = new StatCollector(db);
+
+/**
+ * Contains the processes information about the game
+ **/
 var state = {
   // Connection information
   connections : {},
@@ -64,9 +69,12 @@ app.configure(function() {
   app.use(express.methodOverride());
   app.use(express.cookieParser());
   app.use(express.session({ secret: "mongoman rules" }));  
+  // app.use(express.logger({ format: ':method :url' }));
 });
 
-// Provide the bootstrap file
+/**
+ * Handles the login and works around a session issue on chrome
+ **/
 app.post('/game', function(req, res) {
   // Unpack params
   var name = req.param('name');  
@@ -106,13 +114,16 @@ app.post('/game', function(req, res) {
   })
 });
 
+/**
+ * Start the game
+ **/
 app.get('/start', function(req, res) {
   //
   // Need to do manual session handling as websocket does not correctly work with
   // Express cookie pipeline
   //
   // Parse the cookie
-  var cookie = connectUtils.parseCookie(req.headers['cookie']);
+  var cookie = parseCookie(req.headers['cookie']);
   // Grab the session id
   var sessionId = cookie['connect.sid'];
   var name = req.session['name'];
@@ -124,6 +135,9 @@ app.get('/start', function(req, res) {
   });
 });
 
+/**
+ * Debug function allowing you to reset the game
+ **/
 app.get('/delete', function(req, res) {
   // Remove all boards from play
   state.boardCollection.update({number_of_players: {$lt:100}}, {$set:{number_of_players:100}}, {multi:true});            
@@ -131,6 +145,9 @@ app.get('/delete', function(req, res) {
   res.render('index', { layout: false });
 })
 
+/**
+ * View the highscore of the game
+ **/
 app.get('/highscore', function(req, res) {
   // Fetch the users sorted by score
   state.playersCollection.find({}).sort({score:-1}).limit(20).toArray(function(err, players) {
@@ -140,9 +157,26 @@ app.get('/highscore', function(req, res) {
   });
 });
 
-//
-//  Handles user name setup
-//
+/**
+ * Statistics
+ **/
+app.get('/statistics', function(req, res) {
+  res.render('statistics', { layout: false});
+});
+
+app.get('/statsdata', function(req, res) {
+  statCollector.findLast(function(err, item) {
+    if(err != null || item == null) {
+      res.send(JSON.stringify({ "data" : 0, "ts" : new Date(), "e" : { }, "pid" : 54938}));
+    } else {
+      res.send(JSON.stringify(item));      
+    }
+  });
+});
+
+/**
+ * Render first page
+ **/
 app.get('/', function(req, res) {
   // Destroy cookie
   req.session.destroy();
@@ -150,9 +184,9 @@ app.get('/', function(req, res) {
   res.render('signin', { layout: false })
 })
 
-//
-// Start up the server, using async to manage the flow of calls
-//
+/**
+ * Start up the server, using async to manage the flow of calls
+ **/
 if(cluster.isMaster) {
   // Do the basic setup for the main process
   // Setting up the db and tables
@@ -175,10 +209,15 @@ if(cluster.isMaster) {
       function(callback) { db.dropCollection('game', function() { callback(null, null); }); },
       function(callback) { db.dropCollection('board', function() { callback(null, null); }); },
       function(callback) { db.dropCollection('sessions', function() { callback(null, null); }); },
+      function(callback) { db.dropCollection('statistics', function() { callback(null, null); }); },
       function(callback) { db.createCollection('game', {capped:true, size:100000, safe:true}, callback); },    
       function(callback) { db.createCollection('board', {capped:true, size:100000, safe:true}, callback); },    
       function(callback) { db.createCollection('sessions', {safe:true}, callback); },    
+      function(callback) { db.createCollection('statistics', {capped:true, size:100000, safe:true}, callback); },    
+      function(callback) { db.ensureIndex('statistics', {ts:-1}, callback); },    
       function(callback) { db.ensureIndex('board', {number_of_players:1}, callback); },    
+      function(callback) { db.ensureIndex('board', {players:1}, callback); },    
+      function(callback) { db.ensureIndex('session', {'id':1}, callback); },    
       function(callback) { db.ensureIndex('game', {'id':1}, callback); },    
       function(callback) { db.ensureIndex('game', {'b':1}, callback); },          
     ], function(err, result) {
@@ -235,7 +274,7 @@ if(cluster.isMaster) {
         // A new connection from a player
         wsServer.on('request', function(request) {
           // Parse the cookie and grab session id and player name
-          var cookie = connectUtils.parseCookie(request.httpRequest.headers['cookie']);          
+          var cookie = parseCookie(request.httpRequest.headers['cookie']);          
           var sessionId = cookie['connect.sid'];
           var playerName = cookie['_mongoman_name'];
           // Perfor an upsert to insert a new session
@@ -263,7 +302,7 @@ if(cluster.isMaster) {
               // Decode the json message and take the appropriate action
               var messageObject = JSON.parse(message.utf8Data);
               // Parse the cookie
-              var cookie = connectUtils.parseCookie(request.httpRequest.headers['cookie']);
+              var cookie = parseCookie(request.httpRequest.headers['cookie']);
               // Grab the session id
               var sessionId = cookie['connect.sid'];
               
@@ -319,7 +358,7 @@ if(cluster.isMaster) {
                   
                   // If it's not the originator set the powerpill in play
                   if(key != self.connectionId) {
-                    state.connections[key].sendUTF(JSON.stringify({state:'powerpill', value:value}));
+                    state.connections[key].sendUTF(statCollector.passThroughWrite('powerpill', JSON.stringify({state:'powerpill', value:value})));
                   }
                 }                  
               } else if(messageObject['type'] == 'movement') {
@@ -344,7 +383,7 @@ if(cluster.isMaster) {
                   if(self.connectionId != connectionIds[i]) {
                     var role = mongoman ? "m" : "g";
                     // Mongoman or ghost
-                    state.connections[connectionIds[i]].sendUTF(JSON.stringify({
+                    state.connections[connectionIds[i]].sendUTF(statCollector.passThroughWrite('movement', JSON.stringify({
                         id: self.connectionId, b: boardId,
                         role: role, state: 'n',
                         pos: {
@@ -353,7 +392,7 @@ if(cluster.isMaster) {
                           facing: position.facing,
                           xpushing: position.xpushing, ypushing: position.ypushing
                         }
-                      }));
+                      })));
                   }
                 }
                        
@@ -401,7 +440,7 @@ if(cluster.isMaster) {
 
                         // Message all players that we are dead
                         for(var j = 0; j < connectionIds.length; j++) {
-                          state.connections[connectionIds[j]].sendUTF(JSON.stringify({state:'ghostdead', id:_connectionId}));
+                          state.connections[connectionIds[j]].sendUTF(statCollector.passThroughWrite('ghostdead', JSON.stringify({state:'ghostdead', id:_connectionId})));
                         }
                         
                         // return;
@@ -530,7 +569,7 @@ var killBoard = function(_state, connection, removeConnection) {
       if(board != null) {
         for(var i = 0; i < board.players.length; i++) {
           // Send we are dead as well as intialize
-          _state.connections[board.players[i]].sendUTF(JSON.stringify({state:'dead'}));
+          _state.connections[board.players[i]].sendUTF(statCollector.passThroughWrite('dead', JSON.stringify({state:'dead'})));
         }
       }  
       
@@ -573,7 +612,7 @@ var initializeBoard = function(_state, session, connection) {
       // Prime the board game with the monogman
       _state.gameCollection.insert({id:connection.connectionId, b:newBoard._id, role:'m', state:'n', pos:{x:0, y:0, accx:0, accy:0, facing:0, xpushing:0, ypushing:0}});
       // Signal the gamer we are mongoman
-      connection.sendUTF(JSON.stringify({state:'initialize', isMongoman:true, name:session['name']}));
+      connection.sendUTF(statCollector.passThroughWrite('initialize', JSON.stringify({state:'initialize', isMongoman:true, name:session['name']})));
     } else {
       // Update session with board id
       _state.sessionsCollection.update({id:session.id}, {$set:{b:board._id}});
@@ -584,12 +623,12 @@ var initializeBoard = function(_state, session, connection) {
       // Prime the board game with the ghost
       _state.gameCollection.insert({id:connection.connectionId, b:board._id, role:'g', state:'n', pos:{x:0, y:0, accx:0, accy:0, facing:0, xpushing:0, ypushing:0}});
       // There is a board, we are a ghost, message the user that we are ready and also send the state of the board
-      connection.sendUTF(JSON.stringify({state:'initialize', isMongoman:false, name:session['name']}));
+      connection.sendUTF(statCollector.passThroughWrite('initialize', JSON.stringify({state:'initialize', isMongoman:false, name:session['name']})));
       // Find all board positions and send
       _state.gameCollection.find({b:board._id}).toArray(function(err, docs) {
         if(!err) {
           for(var i = 0; i < docs.length; i++) {
-            connection.sendUTF(JSON.stringify(docs[i]));
+            connection.sendUTF(statCollector.passThroughWrite('movement', JSON.stringify(docs[i])));
           }
         }
       });
@@ -620,7 +659,7 @@ var ghostDead = function(_state, connection, message) {
       // Send the ghost is dead to all other players on the board
       for(var i = 0; i < board.players.length; i++) {
         if(board.players[i] != connection.connectionId) {
-          if(_state.connections[board.players[i]] != null) _state.connections[board.players[i]].sendUTF(JSON.stringify({state:'ghostdead', id:message.id}));
+          if(_state.connections[board.players[i]] != null) _state.connections[board.players[i]].sendUTF(statCollector.passThroughWrite('ghostdead', JSON.stringify({state:'ghostdead', id:message.id})));
         }
       }                    
     }    
@@ -636,10 +675,47 @@ var mongomanWon = function(_state, connection) {
     $set: {number_of_players: 100}}, {new:true, upsert:false}, function(err, board) {
     // Send the ghost is dead to all other players on the board
     for(var i = 0; i < board.players.length; i++) {
-      _state.connections[board.players[i]].sendUTF(JSON.stringify({state:'mongowin'}));
+      _state.connections[board.players[i]].sendUTF(statCollector.passThroughWrite('mongowin', JSON.stringify({state:'mongowin'})));
     }       
   });      
 }
+
+/**
+ * Parse the given cookie string into an object.
+ *
+ * @param {String} str
+ * @return {Object}
+ * @api public
+ */
+var parseCookie = function(str){
+  var obj = {}
+    , pairs = str.split(/[;,] */);
+  for (var i = 0, len = pairs.length; i < len; ++i) {
+    var pair = pairs[i]
+      , eqlIndex = pair.indexOf('=')
+      , key = pair.substr(0, eqlIndex).trim().toLowerCase()
+      , val = pair.substr(++eqlIndex, pair.length).trim();
+
+    // quoted values
+    if ('"' == val[0]) val = val.slice(1, -1);
+
+    // only assign once
+    if (undefined == obj[key]) {
+      val = val.replace(/\+/g, ' ');
+      try {
+        obj[key] = decodeURIComponent(val);
+      } catch (err) {
+        if (err instanceof URIError) {
+          obj[key] = val;
+        } else {
+          throw err;
+        }
+      }
+    }
+  }
+  return obj;
+};
+
 
 
 
