@@ -210,10 +210,10 @@ if(cluster.isMaster) {
       function(callback) { db.dropCollection('board', function() { callback(null, null); }); },
       function(callback) { db.dropCollection('sessions', function() { callback(null, null); }); },
       function(callback) { db.dropCollection('statistics', function() { callback(null, null); }); },
-      function(callback) { db.createCollection('game', {capped:true, size:100000, safe:true}, callback); },    
-      function(callback) { db.createCollection('board', {capped:true, size:100000, safe:true}, callback); },    
-      function(callback) { db.createCollection('sessions', {safe:true}, callback); },    
-      function(callback) { db.createCollection('statistics', {capped:true, size:100000, safe:true}, callback); },    
+      function(callback) { db.createCollection('game', {capped:true, size:100000}, callback); },    
+      function(callback) { db.createCollection('board', {capped:true, size:100000}, callback); },    
+      function(callback) { db.createCollection('sessions', {}, callback); },    
+      function(callback) { db.createCollection('statistics', {capped:true, size:100000}, callback); },    
       function(callback) { db.ensureIndex('statistics', {ts:-1}, callback); },    
       function(callback) { db.ensureIndex('board', {number_of_players:1}, callback); },    
       function(callback) { db.ensureIndex('board', {players:1}, callback); },    
@@ -299,6 +299,8 @@ if(cluster.isMaster) {
             var self = this;
             // Handle game status messages
             if(message.type == 'utf8') {      
+              // Save stats about the data
+              statCollector.passThroughWrite("incoming", message.utf8Data);
               // Decode the json message and take the appropriate action
               var messageObject = JSON.parse(message.utf8Data);
               // Parse the cookie

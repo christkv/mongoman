@@ -11,7 +11,7 @@
     "node": "~0.6.10"
   },
   "dependencies": {
-    "websocket" : "1.0.4",
+    "websocket" : "1.0.6",
     "mongodb" : "1.1.0-beta",
     "express" : "2.5.10",
     "connect": "2.3.4",
